@@ -180,17 +180,39 @@ private:
     TH1F* h_ABS_etaLeadingJetDiLep;
 
     //After tt reconstruction
+    TH1F* h_NBJetsMuMu;
+    TH1F* h_NBJetsElMu;
+    TH1F* h_NBJetsElEl;
+    TH1F* h_NBJetsDiLep;
     TH1F* h_cosMuMu;
     TH1F* h_cosElEl;
     TH1F* h_cosElMu;
+    TH1F* h_cosDiLep;
     TH1F* h_cosGenMuMu;
     TH1F* h_cosGenElEl;
     TH1F* h_cosGenElMu;
     TH1F* h_cosGen;
-
+    TH1F* h_mTTbarMuMu;
+    TH1F* h_mTTbarElEl;
+    TH1F* h_mTTbarElMu;
     TH1F* h_TTbarM;
     TH1F* h_GenTTbarM;
-
+    TH1F* h_ptTMuMu;
+    TH1F* h_ptTElEl;
+    TH1F* h_ptTElMu;
+    TH1F* h_ptTDiLep;
+    TH1F* h_yTMuMu;
+    TH1F* h_yTElEl;
+    TH1F* h_yTElMu;
+    TH1F* h_yTDiLep;
+    TH1F* h_ptWMuMu;
+    TH1F* h_ptWElEl;
+    TH1F* h_ptWElMu;
+    TH1F* h_ptWDiLep;
+    TH1F* h_yWMuMu;
+    TH1F* h_yWElEl;
+    TH1F* h_yWElMu;
+    TH1F* h_yWDiLep;
     TH1F* h_PtMu;
     TH1F* h_etaMu;
 

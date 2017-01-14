@@ -1,0 +1,792 @@
+// system include files
+#include <memory>
+#include <iostream>
+#include <cmath>
+#include <vector>
+#include <TBranch.h>
+#include <TTree.h>
+#include <TFile.h>
+#include <TH1.h>
+#include <TH2.h>
+#include <string>
+#include <map>
+#include <sstream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <TRandom3.h>
+#include <TBranch.h>
+#include <TClonesArray.h>
+
+// user include files
+#include "FWCore/Framework/interface/Frameworkfwd.h"
+#include "FWCore/Framework/interface/EDAnalyzer.h"
+
+#include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
+
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+
+#include "DataFormats/VertexReco/interface/VertexFwd.h"
+#include "DataFormats/VertexReco/interface/Vertex.h"
+#include "DataFormats/PatCandidates/interface/Muon.h"
+#include "DataFormats/PatCandidates/interface/Electron.h"
+#include "DataFormats/PatCandidates/interface/Tau.h"
+#include "DataFormats/PatCandidates/interface/Photon.h"
+#include "DataFormats/PatCandidates/interface/Jet.h"
+#include "DataFormats/PatCandidates/interface/MET.h"
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
+#include "DataFormats/PatCandidates/interface/PackedGenParticle.h"
+#include "DataFormats/Candidate/interface/Candidate.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
+#include "CommonTools/Utils/interface/TFileDirectory.h"
+#include "DataFormats/Math/interface/deltaR.h"
+#include "FWCore/Common/interface/TriggerNames.h"
+#include "DataFormats/Common/interface/TriggerResults.h"
+#include "DataFormats/PatCandidates/interface/TriggerObjectStandAlone.h"
+#include "DataFormats/PatCandidates/interface/PackedTriggerPrescales.h"
+#include "AnalysisDataFormats/TopObjects/interface/TtEvent.h"
+#include "TopQuarkAnalysis/TopKinFitter/interface/TtFullLepKinSolver.h"
+#include "TopQuarkAnalysis/TopEventProducers/interface/TtDilepEvtSolutionMaker.h"
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
+#include "RecoEgamma/EgammaTools/interface/EffectiveAreas.h"
+
+
+
+#include "DileptonAnalyticalSolver.h"
+
+using namespace std;
+using namespace pat;
+using namespace edm;
+using namespace reco;
+//
+// class declaration
+//
+
+class MiniAnalyzer : public edm::EDAnalyzer {
+public:
+    explicit MiniAnalyzer (const edm::ParameterSet&);
+    ~MiniAnalyzer();
+    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
+private:
+    virtual void beginJob() override;
+    virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
+    virtual void endJob() override;
+    void DileptonSolver(double metx, double mety, double lpx,double lpy,double lpz,double lpe,
+                        double lmx,double lmy,double lmz,double lme,double bx,double by,double bz,double be,double bbx,double bby,double bbz,double bbe);
+
+
+    // ----------member data ---------------------------
+    edm::EDGetTokenT<reco::VertexCollection> vtxToken_;
+    edm::EDGetTokenT<pat::MuonCollection> muonToken_;
+    edm::EDGetTokenT<pat::ElectronCollection> electronToken_;
+    edm::EDGetTokenT<pat::TauCollection> tauToken_;
+    edm::EDGetTokenT<pat::PhotonCollection> photonToken_;
+    edm::EDGetTokenT<pat::JetCollection>  jetToken_;
+    edm::EDGetTokenT<pat::JetCollection> fatjetToken_;
+    edm::EDGetTokenT<pat::METCollection> metToken_;
+    edm::EDGetTokenT<edm::View<reco::GenParticle> > prunedGenToken_;
+    edm::EDGetTokenT<edm::View<pat::PackedGenParticle> > packedGenToken_;
+    edm::EDGetTokenT<GenEventInfoProduct> genEvtInfo_;
+    edm::EDGetTokenT<LHEEventProduct> lheEvtInfo_;
+    edm::EDGetTokenT<double> rho_;
+
+    // function declaration
+    bool IsSoftMuon(const pat::Muon&, const reco::Vertex&);
+
+    // histogram declaration
+    edm::Service<TFileService> fs;
+    const reco::GenParticle* mother;
+
+    TH1F* h_cosMuMu;
+    TH1F* h_cosElEl;
+    TH1F* h_cosElMu;
+    TH1F* h_TTbarM;
+    TH1F* h_PtMu;
+
+    double coriso= 999; // initialise to dummy value
+    double coriso2= 999; // initialise to dummy value
+
+    TLorentzVector Neutrino;
+    vector<TLorentzVector> Neutrinos;
+    TLorentzVector AntiNeutrino;
+    vector<TLorentzVector> AntiNeutrinos;
+
+    TLorentzVector W1;
+    TLorentzVector W2;
+    TLorentzVector t1;
+    TLorentzVector t2;
+    TLorentzVector ttbar;
+    TLorentzVector lepPos;
+    TLorentzVector lepNeg;
+    TLorentzVector BJet;
+    TLorentzVector BBJet;
+
+    TtFullLepKinSolver* solver;
+    EffectiveAreas effectiveAreas_;
+
+
+
+
+
+
+};
+void MiniAnalyzer::DileptonSolver(double metx, double mety, double lpx, double lpy, double lpz, double lpe, double lmx, double lmy, double lmz, double lme, double bx, double by, double bz, double be, double bbx, double bby, double bbz, double bbe){
+    llsolver::DileptonAnalyticalSolver fdilepsol;
+
+    double lp[4], lm[4], b[4], bb[4];
+    double ETmiss[2];
+
+    //lepton l+
+    lp[0]=lpe;  //E
+    lp[1]=lpx;  //px
+    lp[2]=lpy;  //py
+    lp[3]=lpz; //pz
+
+    //lepton l-
+    lm[0]=lme; //E
+    lm[1]=lmx; //px
+    lm[2]=lmy; //py
+    lm[3]=lmz; //pz
+
+    //b quark
+    b[0]=be; //E
+    b[1]=bx; //px
+    b[2]=by; //py
+    b[3]=bz; //pz
+
+    //bbar quark
+    bb[0]=bbe; //E
+    bb[1]=bbx; //px
+    bb[2]=bby; //py
+    bb[3]=bbz; //pz
+
+    //neutrino
+    //    nu[0]=64.8062; //E
+    //    nu[1]=-28.2752; //px
+    //    nu[2]=-54.4052; //py
+    //    nu[3]=-20.9865; //pz
+
+    //anti-neutrino
+    //    nub[0]=88.8364; //E
+    //    nub[1]=-33.7231; //px
+    //    nub[2]=0.273651; //py
+    //    nub[3]=82.1863; //pz
+
+    //Ex miss
+    //    ETmiss[0]=10.*nu[1]+nub[1];
+    ETmiss[0]=metx;
+    //Ey miss
+    //    ETmiss[1]=nu[2]+nub[2];
+    ETmiss[1] = mety;
+    std::vector<double> pnux, pnuy, pnuz, pnubx, pnuby, pnubz;
+    std::vector<double> pnuychi2, pnunubzchi2, pnuyzchi2, cd_diff;
+    int cubic_single_root_cmplx;
+
+    double mt, mtb;
+    mt = mtb = 172.5;
+    double mWp, mWm;
+    mWp = mWm = 80.41;
+    double mnu, mnub;
+    mnu = mnub = 0.;
+
+    //    std::cout << "generated (anti-)neutrino momenta:" << std::endl;
+    //    std::cout << "pnux=" << nu[1] << " pnuy=" << nu[2] << " pnuz=" << nu[3]
+    //              << " pnubx=" << nub[1] << " pnuby=" << nub[2] << " pnubz=" << nub[3] << std::endl;
+
+    //    std::cout << "Exmiss=" << ETmiss[0] << " Eymiss=" << ETmiss[1] << std::endl;
+
+    //    std::cout << "Invoking solve procedure now!" << std::endl;
+
+    //cd_diff gives the value of this coefficient which can become singular (debugging purposes)
+    //cubic_single_root_cmplx gives the number of single complex rootes of the cubic
+    // due to numerical inaccuracies (for debugging purposes)
+    fdilepsol.solve(ETmiss, b, bb, lp, lm, mWp, mWm, mt, mtb, mnu, mnub,
+                    &pnux, &pnuy, &pnuz, &pnubx, &pnuby, &pnubz,
+                    &cd_diff, cubic_single_root_cmplx);
+
+    //    std::cout<<"Number of solutions : "<<pnubx.size()<<std::endl;
+    for (size_t i=0; i<pnux.size(); ++i){
+        //        std::cout << "solution[" << i << "]: pnux=" << pnux[i] << " pnuy=" << pnuy[i] << " pnuz=" << pnuz[i]
+        //                     << " pnubx=" << pnubx[i] << " pnuby=" << pnuby[i] << " pnubz=" << pnubz[i] << std::endl;
+
+        Neutrino.SetXYZM(pnux[i],pnuy[i],pnuz[i],0);
+        Neutrinos.push_back(Neutrino);
+        AntiNeutrino.SetXYZM(pnubx[i],pnuby[i],pnubz[i],0);
+        AntiNeutrinos.push_back(AntiNeutrino);
+    }
+}
+
+MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
+    vtxToken_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("vertices"))),
+    muonToken_(consumes<pat::MuonCollection>(iConfig.getParameter<edm::InputTag>("muons"))),
+    electronToken_(consumes<pat::ElectronCollection>(iConfig.getParameter<edm::InputTag>("electrons"))),
+    tauToken_(consumes<pat::TauCollection>(iConfig.getParameter<edm::InputTag>("taus"))),
+    photonToken_(consumes<pat::PhotonCollection>(iConfig.getParameter<edm::InputTag>("photons"))),
+    jetToken_(consumes<pat::JetCollection>(iConfig.getParameter<edm::InputTag>("jets"))),
+    fatjetToken_(consumes<pat::JetCollection>(iConfig.getParameter<edm::InputTag>("fatjets"))),
+    metToken_(consumes<pat::METCollection>(iConfig.getParameter<edm::InputTag>("mets"))),
+    prunedGenToken_(consumes<edm::View<reco::GenParticle> >(iConfig.getParameter<edm::InputTag>("pruned"))),
+    packedGenToken_(consumes<edm::View<pat::PackedGenParticle> >(iConfig.getParameter<edm::InputTag>("packed"))),
+    genEvtInfo_(consumes<GenEventInfoProduct>(iConfig.getParameter<edm::InputTag>("genEvtInfo"))),
+    lheEvtInfo_(consumes<LHEEventProduct>(iConfig.getParameter<edm::InputTag>("lheEvtInfo"))),
+    rho_(consumes<double>(iConfig.getParameter<edm::InputTag>("rho"))),
+    effectiveAreas_( (iConfig.getParameter<edm::FileInPath>("effAreasConfigFile")).fullPath() )
+{
+    TH1::SetDefaultSumw2();
+    h_cosMuMu = fs->make<TH1F>("h_cosMuMu",";cos(#theta);",10,-1,1);
+    h_cosElEl = fs->make<TH1F>("h_cosElEl",";cos(#theta);",10,-1,1);
+    h_cosElMu = fs->make<TH1F>("h_cosElMu",";cos(#theta);",10,-1,1);
+    h_TTbarM = fs->make<TH1F>("h_TTbarM",";M_{TTbar};",100,90,1300);
+    h_PtMu = fs->make<TH1F>("h_PtMu",";Mu_{Pt};",100,19,1300);
+    const vector<double> nuPar= {30.7137,56.2880,23.0744,59.1015,24.9145};
+    solver = new TtFullLepKinSolver(171.5,173.5,100,nuPar,80.4,4.8);
+
+}
+
+MiniAnalyzer::~MiniAnalyzer()
+{
+}
+
+void
+MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
+{
+    using namespace edm;
+
+
+    /////////////FILLINGINPUTS/////////////////////
+    edm::Handle<reco::VertexCollection> vertices;
+    iEvent.getByToken(vtxToken_, vertices);
+
+    edm::Handle<pat::MuonCollection> muons;
+    iEvent.getByToken(muonToken_, muons);
+
+    edm::Handle<pat::ElectronCollection> electrons;
+    iEvent.getByToken(electronToken_, electrons);
+
+    edm::Handle<pat::JetCollection> jets;
+    iEvent.getByToken(jetToken_, jets);
+
+    edm::Handle<pat::METCollection> mets;
+    iEvent.getByToken(metToken_, mets);
+
+    Handle<edm::View<reco::GenParticle> > pruned;
+    iEvent.getByToken(prunedGenToken_,pruned);
+
+    Handle<edm::View<pat::PackedGenParticle> > packed;
+    iEvent.getByToken(packedGenToken_,packed);
+
+    edm::Handle<GenEventInfoProduct> genEvtInfo;
+    iEvent.getByToken( genEvtInfo_, genEvtInfo );
+
+    edm::Handle<LHEEventProduct> lhEvtInfo;
+    iEvent.getByToken( lheEvtInfo_, lhEvtInfo);
+
+    edm::Handle<double> rhoHandle_;
+    iEvent.getByToken( rho_,rhoHandle_);
+    float rho = *rhoHandle_;
+
+
+    /////////////////////////////////////////////////
+    // make sure we have a good vertex //////////////
+    /////////////////////////////////////////////////
+
+    if (vertices->empty()) return;
+    VertexCollection::const_iterator PV = vertices->end();
+    for (VertexCollection::const_iterator vtx = vertices->begin(); vtx != vertices->end(); ++vtx, ++PV) {
+        if ( !(vtx->isFake())
+             && vtx->ndof() >= 4. && vtx->position().Rho() < 2.0
+             && fabs(vtx->position().Z()) < 24.0) {
+            PV = vtx;
+            break;
+        }
+    }
+    if (PV==vertices->end()) return;
+
+    // count how many good vertices we have
+    int nGoodVtxs = 0;
+    for (VertexCollection::const_iterator vtx = vertices->begin();vtx != vertices->end(); ++vtx) {
+        if ( !(vtx->isFake()) && vtx->ndof() >= 4. && vtx->position().Rho() <= 2.0 && fabs(vtx->position().Z()) <= 24.) nGoodVtxs++;
+    }
+
+    //////////////EVENT WEIGHT/////////
+    /// finding weight so we can
+    /// compare different backgrounds
+    double theWeight = genEvtInfo->weight();
+    int whichWeight = 2;
+    theWeight *= lhEvtInfo->weights()[whichWeight].wgt/lhEvtInfo->originalXWGTUP();
+
+
+    //////////////MUON////////////////
+    /// finding pos and neg muon with highest pt
+    ///
+    pat::Muon posMu;
+    pat::Muon negMu;
+    for (pat::MuonCollection::const_iterator mup = muons->begin();mup != muons->end(); ++mup){
+        if( !(mup->charge() > 0)) continue;
+        if( !(mup->pt() > 20.0 )) continue;
+        if( !(fabs(mup->eta()) < 2.4 )) continue;
+        if( !(mup->isPFMuon())) continue;
+        if( !(mup->isGlobalMuon() || mup->isTrackerMuon())) continue;
+        if( mup->isIsolationValid()){
+            reco::MuonPFIsolation pfR04 = mup->pfIsolationR04();
+            coriso = pfR04.sumChargedHadronPt + std::max(0., pfR04.sumNeutralHadronEt+pfR04.sumPhotonEt-0.5*pfR04.sumPUPt);
+        }
+        if (!(coriso/mup->pt() <  0.15)) continue;
+        if(mup->pt() > posMu.pt() ) posMu = *mup;
+        cout << mup->pt() <<endl;
+        cout << posMu.pt() << endl;
+        h_PtMu->Fill(mup->pt(),theWeight);
+
+    }
+
+    for (pat::MuonCollection::const_iterator mum = muons->begin();mum != muons->end(); ++mum){
+        if( !(mum->charge() < 0)) continue;
+        if( !(mum->pt() > 20.0 )) continue;
+        if( !(fabs(mum->eta()) < 2.4 )) continue;
+        if( !(mum->isPFMuon())) continue;
+        if( !(mum->isGlobalMuon() || mum->isTrackerMuon())) continue;
+        if( mum->isIsolationValid()){
+            reco::MuonPFIsolation pfR04 = mum->pfIsolationR04();
+            coriso2 = pfR04.sumChargedHadronPt + std::max(0., pfR04.sumNeutralHadronEt+pfR04.sumPhotonEt-0.5*pfR04.sumPUPt);
+        }
+        if (!(coriso2/mum->pt() <  0.15)) continue;
+        if(mum->pt() > negMu.pt() ) negMu = *mum;
+        h_PtMu->Fill(mum->pt(),theWeight);
+
+
+    }
+
+    cout << posMu.charge() << " charges " << negMu.charge() << endl;
+    ////////////////////ELECTRONS//////////////////////////
+    /// electron identification
+    ///
+    pat::Electron posEl;
+    pat::Electron negEl;
+
+    for (pat::ElectronCollection::const_iterator elp = electrons->begin();elp != electrons->end();++elp){
+        if( !( elp->charge() > 0 ) ) continue;
+        if( !( elp->pt() > 20 ) ) continue;
+        if( !( fabs(elp->eta() ) < 2.5)) continue;
+        if( !( elp->gsfTrack()->dz() < 0.04 )) continue;
+        if( !(elp->passConversionVeto())) continue;
+        if( !(elp->gsfTrack()->hitPattern().numberOfLostHits(HitPattern::MISSING_INNER_HITS) <= 0)) continue;
+        GsfElectron::PflowIsolationVariables pfIso = elp->pfIsolationVariables();
+        static double relCombIsoEA = 999.;
+        float abseta = fabs(elp->superCluster()->eta());
+        float eA = effectiveAreas_.getEffectiveArea(abseta);
+        relCombIsoEA = (( pfIso.sumChargedHadronPt
+                          + std::max( 0.0f, pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - eA*rho) )
+                        / elp->pt() );
+        if( !(relCombIsoEA < 0.15)) continue;
+        if( !(elp->userFloat("ElectronMVAEstimatorRun2Spring15NonTrig25nsV1Values") > 0.5 )) continue;
+        cout << elp->userFloat("ElectronMVAEstimatorRun2Spring15NonTrig25nsV1Values") << "MVA Id "<< endl;
+        double dR =0;
+        for(pat::MuonCollection::const_iterator dumMu = muons->begin();dumMu != muons->end();++dumMu){
+            if(!(dumMu->isGlobalMuon())) continue;
+            dR = ROOT::Math::VectorUtil::DeltaR(dumMu->p4(),elp->p4());
+            if(!(dR > 0.1)) break;
+        }
+        if(!(dR > 0.1)) continue;
+        if( elp->pt() > posEl.pt() ) posEl = *elp;
+
+    }
+
+    for (pat::ElectronCollection::const_iterator elm = electrons->begin();elm != electrons->end();++elm){
+        if( !( elm->charge() < 0 ) ) continue;
+        if( !( elm->pt() > 20 ) ) continue;
+        if( !( fabs(elm->eta() ) < 2.5)) continue;
+        if( !( elm->gsfTrack()->dz() < 0.04 )) continue;
+        if( !(elm->passConversionVeto())) continue;
+        if( !(elm->gsfTrack()->hitPattern().numberOfLostHits(HitPattern::MISSING_INNER_HITS) <= 0)) continue;
+        GsfElectron::PflowIsolationVariables pfIso = elm->pfIsolationVariables();
+        static double relCombIsoEA = 999.;
+        float abseta = fabs(elm->superCluster()->eta());
+        float eA = effectiveAreas_.getEffectiveArea(abseta);
+        relCombIsoEA = (( pfIso.sumChargedHadronPt
+                          + std::max( 0.0f, pfIso.sumNeutralHadronEt + pfIso.sumPhotonEt - eA*rho) )
+                        / elm->pt() );
+        if( !(relCombIsoEA < 0.15)) continue;
+        if( !(elm->userFloat("ElectronMVAEstimatorRun2Spring15NonTrig25nsV1Values") > 0.5 )) continue;
+        cout << elm->userFloat("ElectronMVAEstimatorRun2Spring15NonTrig25nsV1Values") << "MVA Id "<< endl;
+        double dR =0;
+        for(pat::MuonCollection::const_iterator dumMu = muons->begin();dumMu != muons->end();++dumMu){
+            if(!(dumMu->isGlobalMuon())) continue;
+            dR = ROOT::Math::VectorUtil::DeltaR(dumMu->p4(),elm->p4());
+            if(!(dR > 0.1)) break;
+        }
+        if(!(dR > 0.1)) continue;
+        if( elm->pt() > negEl.pt() ) negEl = *elm;
+
+    }
+
+
+    ////////////////////METS PF1//////////////////////////
+    const pat::MET &met = mets->front();
+
+    ///////////////////JETS//////////////////////////////
+    vector<pat::Jet> bjets;
+    //    pat::Jet j;j.bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags");
+
+    for(pat::JetCollection::const_iterator jet_it=jets->begin(); jet_it != jets->end();++jet_it){
+        if( !( jet_it->pt() > 30 )) continue;
+        if( !( fabs(jet_it->eta()) < 2.4 )) continue;
+        if( !(jet_it->bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags") >  0.460 )) continue;          //loose working point for btaging
+        if( !(jet_it->neutralHadronEnergyFraction() < 0.99 && jet_it->neutralEmEnergyFraction() < 0.99 && (jet_it->chargedMultiplicity() + jet_it->neutralMultiplicity())> 1.
+              && jet_it->chargedHadronEnergyFraction() > 0. && jet_it->chargedEmEnergyFraction() < 0.99 && jet_it->chargedMultiplicity() > 1.)) continue;
+        bjets.push_back(*jet_it);
+
+    }
+
+    cout << "number of bjets"<< bjets.size() << endl;
+
+    cout << posMu.pt() << " Muons " << negMu.pt() << endl;
+    if(bjets.size() >= 2) cout << bjets.at(0).p4() << " Jets "<< bjets.at(1).p4() << endl;
+    cout << met.pt() << "met"<< endl;
+    //////////////////////GEN LEVEL////////////////
+
+
+    //////////////////////TOP RECO/////////////////
+
+    ////////DiMuon:
+    if(posMu.pt() > 20 && negMu.pt() > 20 && bjets.size() >= 2 && met.pt() > 0
+            && !( ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),posMu.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),negMu.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),negMu.p4()) < 0.5 ||  ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),posMu.p4()) < 0.5) ){
+        cout << "IM HERE!" << endl;
+        lepPos.SetPtEtaPhiE(posMu.pt(),posMu.eta(),posMu.phi(),posMu.energy());
+        lepNeg.SetPtEtaPhiE(negMu.pt(),negMu.eta(),negMu.phi(),negMu.energy());
+        BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
+        BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
+
+        DileptonSolver(met.px(),met.py(),posMu.px(),posMu.py(),posMu.pz(),posMu.energy(),negMu.px(),negMu.py(),negMu.pz(),negMu.energy(),
+                       bjets.at(0).px(),bjets.at(0).py(),bjets.at(0).pz(),bjets.at(0).energy(), bjets.at(1).px(),bjets.at(1).py(),bjets.at(1).pz(),bjets.at(1).energy());
+
+
+        solver->SetConstraints(met.px(),met.py());
+        TtFullLepKinSolver::NeutrinoSolution nuSol =  solver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
+        cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            TLorentzVector nu;
+            TLorentzVector nuBar;
+            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            W1 = nu + lepPos;
+            W2 = nuBar + lepNeg;
+
+
+            t1 = W1 + BJet;
+            t2 = W2 + BBJet;
+            ttbar = t1 + t2;
+            h_TTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            lepPos.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(lepPos.Vect()));
+            h_cosMuMu->Fill(TMath::Cos(theta1),theWeight);
+            lepNeg.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(lepNeg.Vect()));
+            h_cosMuMu->Fill(TMath::Cos(theta2),theWeight);
+
+        }
+    }
+
+    //////DiElectron:
+    if(posEl.pt() > 20 && negEl.pt() > 20 && bjets.size() >= 2 && met.pt() > 0
+            && !( ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),posEl.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),negEl.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),negEl.p4()) < 0.5 ||  ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),posEl.p4()) < 0.5) ){
+        cout << "IM HERE!" << endl;
+        lepPos.SetPtEtaPhiE(posEl.pt(),posEl.eta(),posEl.phi(),posEl.energy());
+        lepNeg.SetPtEtaPhiE(negEl.pt(),negEl.eta(),negEl.phi(),negEl.energy());
+        BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
+        BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
+
+
+
+        solver->SetConstraints(met.px(),met.py());
+        TtFullLepKinSolver::NeutrinoSolution nuSol =  solver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
+        cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            TLorentzVector nu;
+            TLorentzVector nuBar;
+            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            W1 = nu + lepPos;
+            W2 = nuBar + lepNeg;
+
+
+            t1 = W1 + BJet;
+            t2 = W2 + BBJet;
+            ttbar = t1 + t2;
+            h_TTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            lepPos.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(lepPos.Vect()));
+            h_cosElEl->Fill(TMath::Cos(theta1),theWeight);
+            lepNeg.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(lepNeg.Vect()));
+            h_cosElEl->Fill(TMath::Cos(theta2),theWeight);
+
+        }
+    }
+    //////ElectronMuon:
+    if(posEl.pt() > 20 && negMu.pt() > 20 && bjets.size() >= 2 && met.pt() > 0
+            && !( ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),posEl.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),negMu.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),negMu.p4()) < 0.5 ||  ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),posEl.p4()) < 0.5) ){
+        cout << "IM HERE!" << endl;
+        lepPos.SetPtEtaPhiE(posEl.pt(),posEl.eta(),posEl.phi(),posEl.energy());
+        lepNeg.SetPtEtaPhiE(negMu.pt(),negMu.eta(),negMu.phi(),negMu.energy());
+        BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
+        BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
+
+
+
+        solver->SetConstraints(met.px(),met.py());
+        TtFullLepKinSolver::NeutrinoSolution nuSol =  solver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
+        cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            TLorentzVector nu;
+            TLorentzVector nuBar;
+            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            W1 = nu + lepPos;
+            W2 = nuBar + lepNeg;
+
+
+            t1 = W1 + BJet;
+            t2 = W2 + BBJet;
+            ttbar = t1 + t2;
+            h_TTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            lepPos.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(lepPos.Vect()));
+            h_cosElMu->Fill(TMath::Cos(theta1),theWeight);
+            lepNeg.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(lepNeg.Vect()));
+            h_cosElMu->Fill(TMath::Cos(theta2),theWeight);
+
+        }
+    }
+
+    if(posMu.pt() > 20 && negEl.pt() > 20 && bjets.size() >= 2 && met.pt() > 0
+            && !( ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),posMu.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),negEl.p4()) < 0.5 || ROOT::Math::VectorUtil::DeltaR(bjets.at(0).p4(),negEl.p4()) < 0.5 ||  ROOT::Math::VectorUtil::DeltaR(bjets.at(1).p4(),posMu.p4()) < 0.5) ){
+        cout << "IM HERE!" << endl;
+        lepPos.SetPtEtaPhiE(posMu.pt(),posMu.eta(),posMu.phi(),posMu.energy());
+        lepNeg.SetPtEtaPhiE(negEl.pt(),negEl.eta(),negEl.phi(),negEl.energy());
+        BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
+        BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
+
+
+
+        solver->SetConstraints(met.px(),met.py());
+        TtFullLepKinSolver::NeutrinoSolution nuSol =  solver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
+        cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            TLorentzVector nu;
+            TLorentzVector nuBar;
+            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            W1 = nu + lepPos;
+            W2 = nuBar + lepNeg;
+
+
+            t1 = W1 + BJet;
+            t2 = W2 + BBJet;
+            ttbar = t1 + t2;
+            h_TTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            lepPos.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(lepPos.Vect()));
+            h_cosElMu->Fill(TMath::Cos(theta1),theWeight);
+            lepNeg.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(lepNeg.Vect()));
+            h_cosElMu->Fill(TMath::Cos(theta2),theWeight);
+
+        }
+    }
+
+    //                vector<TLorentzVector>::iterator it_nu = Neutrinos.begin(),it_nub = AntiNeutrinos.begin();
+    //        for(;it_nu != Neutrinos.end();++it_nu,++it_nub){
+    //              if(!(it_nu->Pt()>0 && it_nub->Pt()>0)) continue;
+    //            W1 = *it_nu + lepPos;
+    //            W2 = *it_nub + lepNeg;
+
+
+    //            t1 = W1 + BJet;
+    //            t2 = W2 + BBJet;
+    //            ttbar = t1 + t2;
+    //            h_TTbarM->Fill(ttbar.M());
+
+
+
+
+    //            //            h_Mttbar->Fill(ttbar.M(),lumiBlockNum_);
+    //            //            h_Yttbar->Fill(ttbar.Rapidity(),lumiBlockNum_);
+    //            //            h_PtW->Fill(W1.Pt() + W2.Pt());
+    //            //            h_PtTTbar->Fill(ttbar.Pt());
+    //            lepPos.Boost(-W1.BoostVector());
+    //            W1.Boost(-t1.BoostVector());
+    //            float theta1 = (W1.Angle(lepPos.Vect()));
+    //            h_cosMuMu->Fill(TMath::Cos(theta1));
+    //            lepNeg.Boost(-W2.BoostVector());
+    //            W2.Boost(-t2.BoostVector());
+    //            float theta2 = (W2.Angle(lepNeg.Vect()));
+    //            h_cosMuMu->Fill(TMath::Cos(theta2));
+
+
+    //        }
+
+
+
+
+    /////////////////////Print Event Details///////////////////////////////
+
+    //    for (const pat::Muon &mu : *muons) {
+    //        if (mu.pt() < 5 || !mu.isLooseMuon()) continue;
+    //        printf("muon with pt %4.1f,muon charge %i, dz(PV) %+5.3f, POG loose id %d, tight id %d\n",
+    //               mu.pt(),mu.charge(), mu.muonBestTrack()->dz(PV->position()), mu.isLooseMuon(), mu.isTightMuon(*PV));
+    //    }
+
+
+    //    for (const pat::Electron &el : *electrons) {
+    //        if (el.pt() < 5) continue;
+    //        printf("elec with pt %4.1f, number of lost Hits %i, supercluster eta %+5.3f, sigmaIetaIeta %.3f (%.3f with full5x5 shower shapes),  pass conv veto %d\n",
+    //               el.pt(),el.gsfTrack()->numberOfLostHits(), el.superCluster()->eta(), el.sigmaIetaIeta(), el.full5x5_sigmaIetaIeta(),  el.passConversionVeto());
+    //    }
+
+    //    edm::Handle<pat::PhotonCollection> photons;
+    //    iEvent.getByToken(photonToken_, photons);
+    //    for (const pat::Photon &pho : *photons) {
+    //        if (pho.pt() < 20 or pho.chargedHadronIso()/pho.pt() > 0.3) continue;
+    //        printf("phot with pt %4.1f, supercluster eta %+5.3f, sigmaIetaIeta %.3f (%.3f with full5x5 shower shapes)\n",
+    //               pho.pt(), pho.superCluster()->eta(), pho.sigmaIetaIeta(), pho.full5x5_sigmaIetaIeta());
+    //    }
+
+    // edm::Handle<pat::TauCollection> taus;
+    // iEvent.getByToken(tauToken_, taus);
+    // for (const pat::TauCollection &tau : *taus) {
+    //     if (tau.pt() < 20) continue;
+    //     printf("tau  with pt %4.1f, dxy signif %.1f, ID(byMediumCombinedIsolationDeltaBetaCorr3Hits) %.1f, lead candidate pt %.1f, pdgId %d \n",
+    //                 tau.pt(), tau.dxy_Sig(), tau.tauID("byMediumCombinedIsolationDeltaBetaCorr3Hits"), tau.leadCand()->pt(), tau.leadCand()->pdgId());
+    // }
+
+
+    //int ijet = 0;
+    //    for (const pat::Jet &j : *jets) {
+    //        if (j.pt() < 20) continue;
+    //        printf("jet  with pt %5.1f (raw pt %5.1f), eta %+4.2f, btag CSV %.3f, CISV %.3f, pileup mva disc %+.2f\n",
+    //               j.pt(), j.pt()*j.jecFactor("Uncorrected"), j.eta(), std::max(0.f,j.bDiscriminator("combinedSecondaryVertexBJetTags")), j.bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags"), j.userFloat("pileupJetId:fullDiscriminant"));
+    //        // if ((++ijet) == 1) { // for the first jet, let's print the leading constituents
+    //        //     std::vector daus(j.daughterPtrVector());
+    //        //     std::sort(daus.begin(), daus.end(), [](const reco::CandidatePtr &p1, const reco::CandidatePtr &p2) { return p1->pt() > p2->pt(); }); // the joys of C++11
+    //        //     for (unsigned int i2 = 0, n = daus.size(); i2 < n && i2 <= 3; ++i2) {
+    //        //         const pat::PackedCandidate &cand = dynamic_cast<const pat::PackedCandidate &>(*daus[i2]);
+    //        //         printf("         constituent %3d: pt %6.2f, dz(pv) %+.3f, pdgId %+3d\n", i2,cand.pt(),cand.dz(PV.position()),cand.pdgId());
+    //        //     }
+    //        // }
+    //    }
+
+    //    edm::Handle<pat::JetCollection> fatjets;
+    //    iEvent.getByToken(fatjetToken_, fatjets);
+    //    for (const pat::Jet &j : *fatjets) {
+    //        printf("AK8j with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed, %5.1f softdrop, %5.1f pruned, %5.1f trimmed, %5.1f filtered. \n",
+    //               j.pt(), j.pt()*j.jecFactor("Uncorrected"), j.eta(), j.mass(), j.userFloat("ak8PFJetsCHSSoftDropMass"), j.userFloat("ak8PFJetsCHSPrunedMass"), j.userFloat("ak8PFJetsCHSTrimmedMass"), j.userFloat("ak8PFJetsCHSFilteredMass"));//, j.userFloat("cmsTopTagPFJetsCHSMassAK8"));
+
+    //        // To get the constituents of the AK8 jets, you have to loop over all of the
+    //        // daughters recursively. To save space, the first two constituents are actually
+    //        // the Soft Drop SUBJETS, which will then point to their daughters.
+    //        // The remaining constituents are those constituents removed by soft drop but
+    //        // still in the AK8 jet.
+    //        // std::vector<reco::GenParticle> constituents;
+    //        //      for ( unsigned ida = 0; ida < j.numberOfDaughters(); ++ida ) {
+    //        //   reco::Candidate const * cand = j.daughter(ida);
+    //        //   if ( cand->numberOfDaughters() == 0 )
+    //        //     constituents.push_back( cand ) ;
+    //        //   else {
+    //        //     for ( unsigned jda = 0; jda < cand->numberOfDaughters(); ++jda ) {
+    //        //       reco::Candidate const * cand2 = cand->daughter(jda);
+    //        //       constituents.push_back( cand2 );
+    //        //     }
+    //        //   }
+    //        // }
+    //        // std::sort( constituents.begin(), constituents.end(), [] (reco::Candidate const * ida, reco::Candidate const * jda){return ida->pt() > jda->pt();} );
+
+    //        // for ( unsigned int ida = 0; ida < constituents.size(); ++ida ) {
+    //        //   const pat::PackedCandidate &cand = dynamic_cast<const pat::PackedCandidate &>(*constituents[ida]);
+    //        //   printf("         constituent %3d: pt %6.2f, dz(pv) %+.3f, pdgId %+3d\n", ida,cand.pt(),cand.dz(PV.position()),cand.pdgId());
+    //        // }
+
+    //        // auto wSubjets = j.subjets("SoftDrop");
+    //        // for ( auto const & iw : wSubjets ) {
+    //        //   printf("   w subjet with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed\n",
+    //        //     iw->pt(), iw->pt()*iw->jecFactor("Uncorrected"), iw->eta(), iw->mass() );
+
+    //        // }
+    //        // auto tSubjets = j.subjets("CMSTopTag");
+    //        // for ( auto const & it : tSubjets ) {
+    //        //   printf("   t subjet with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed\n",
+    //        //     it->pt(), it->pt()*it->jecFactor("Uncorrected"), it->eta(), it->mass() );
+
+    //        // }
+    //    }
+
+
+
+    //    printf("MET: pt %5.1f, phi %+4.2f, sumEt (%.1f). genMET %.1f. MET with JES up/down: %.1f/%.1f\n",
+    //           met.pt(), met.phi(), met.sumEt(),
+    //           met.genMET()->pt(),
+    //           met.shiftedPt(pat::MET::JetEnUp), met.shiftedPt(pat::MET::JetEnDown));
+
+    printf("\n");
+
+
+}
+
+void MiniAnalyzer::beginJob() {
+}
+void MiniAnalyzer::endJob() {
+}
+
+
+//____________________________________________________________________________
+bool MiniAnalyzer::IsSoftMuon(const pat::Muon& mu , const reco::Vertex& vertex) {
+    if (!(muon::isGoodMuon(mu, muon::TMOneStationTight))) return false;
+    if (!(mu.innerTrack()->hitPattern().trackerLayersWithMeasurement() > 5)) return false;
+    if (!(mu.innerTrack()->hitPattern().pixelLayersWithMeasurement() > 0)) return false;
+    if (!(mu.innerTrack()->quality(reco::TrackBase::highPurity))) return false;
+    if (!((fabs(mu.innerTrack()->dxy(vertex.position())) < 0.3) && (fabs(mu.innerTrack()->dz(vertex.position())) < 20.))) return false;
+    return true;
+}
+
+
+// ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
+//____________________________________________________________________________
+void MiniAnalyzer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+    edm::ParameterSetDescription desc;
+    desc.setUnknown();
+    descriptions.addDefault(desc);
+}
+//define this as a plug-in
+DEFINE_FWK_MODULE(MiniAnalyzer);

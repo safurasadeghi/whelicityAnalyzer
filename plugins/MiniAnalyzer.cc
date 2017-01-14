@@ -129,6 +129,11 @@ private:
     TH1F* h_AMS_ptLElEl;
     TH1F* h_AMS_ptLDiLep;
     TH1F* h_AMS_mLMuMu;
+    TH1F* h_AMS_mLElEl;
+    TH1F* h_AMS_mLElMu;
+    TH1F* h_AMS_mLDiLep;
+
+
 
     TH1F* h_cosMuMu;
     TH1F* h_cosElEl;

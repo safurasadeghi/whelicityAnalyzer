@@ -1,0 +1,93 @@
+DEBUG 2017-01-02 10:38:59,362: 	 Executing command: 'submit'
+DEBUG 2017-01-02 10:38:59,363: 	 Found CRAB cache file /afs/cern.ch/user/h/hkaveh/.crab3
+DEBUG 2017-01-02 10:38:59,378: 	 Checking credentials
+DEBUG 2017-01-02 10:38:59,380: 	 Found proxy file /tmp/x509up_u98267
+DEBUG 2017-01-02 10:38:59,380: 	 Getting proxy life time left
+DEBUG 2017-01-02 10:39:00,087: 	 Executing : 
+ command : voms-proxy-info -file /tmp/x509up_u98267 -timeleft
+ output : 39222
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:00,694: 	 Executing : 
+ command : voms-proxy-info -file /tmp/x509up_u98267 -actimeleft
+ output : 39222
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:00,694: 	 Proxy valid for 10:53:42 hours
+INFO 2017-01-02 10:39:00,694: 	 Will use CRAB configuration file crabConfigMC.py
+DEBUG 2017-01-02 10:39:00,694: 	 Loading CRAB configuration file.
+DEBUG 2017-01-02 10:39:03,169: 	 Will use CRAB Analysis plugin (i.e. will run an analysis job type).
+DEBUG 2017-01-02 10:39:03,291: 	 Executing : 
+ command : openssl x509 -in ~/.globus/usercert.pem -subject -noout
+ output : subject= /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=hkaveh/CN=816413/CN=Hessamoddin Kaveh
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:03,292: 	 Checking credentials
+DEBUG 2017-01-02 10:39:03,292: 	 Found proxy file /tmp/x509up_u98267
+DEBUG 2017-01-02 10:39:03,292: 	 Getting proxy life time left
+DEBUG 2017-01-02 10:39:03,798: 	 Executing : 
+ command : voms-proxy-info -file /tmp/x509up_u98267 -timeleft
+ output : 39219
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:04,403: 	 Executing : 
+ command : voms-proxy-info -file /tmp/x509up_u98267 -actimeleft
+ output : 39218
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:04,403: 	 Proxy valid for 10:53:39 hours
+DEBUG 2017-01-02 10:39:04,908: 	 Executing : 
+ command : env X509_USER_PROXY=/tmp/x509up_u98267 voms-proxy-info -fqan
+ output : /cms/Role=NULL/Capability=NULL
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:06,374: 	 Registering user credentials for server /DC=ch/DC=cern/OU=computers/CN=vocms(045|052|021|031|0118|0118a|0119|0108|0105).cern.ch
+DEBUG 2017-01-02 10:39:06,484: 	 Executing : 
+ command : openssl x509 -in ~/.globus/usercert.pem -subject -noout
+ output : subject= /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=hkaveh/CN=816413/CN=Hessamoddin Kaveh
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:06,484: 	 Getting myproxy life time left for myproxy.cern.ch
+DEBUG 2017-01-02 10:39:06,484: 	 Calculating hash of /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=hkaveh/CN=816413/CN=Hessamoddin Kaveh_cmsweb.cern.ch for credential name
+DEBUG 2017-01-02 10:39:06,888: 	 Executing : 
+ command : myproxy-info -l 459adbd47e95f75b5e7dd899440c961357ad3ba5 -s myproxy.cern.ch
+ output : username: 459adbd47e95f75b5e7dd899440c961357ad3ba5
+owner: /DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=hkaveh/CN=816413/CN=Hessamoddin Kaveh
+  renewal policy: /DC=ch/DC=cern/OU=computers/CN=vocms(045|052|021|031|0118|0118a|0119|0108|0105).cern.ch
+  trusted retrieval policy: /DC=ch/DC=cern/OU=computers/CN=vocms(045|052|021|031|0118|0118a|0119|0108|0105).cern.ch
+  timeleft: 719:29:24  (30.0 days)
+
+ error: 
+ retcode : 0
+DEBUG 2017-01-02 10:39:06,889: 	 Myproxy is valid: 2590164
+DEBUG 2017-01-02 10:39:06,889: 	 Command use: submit
+DEBUG 2017-01-02 10:39:06,889: 	 Options use: ['-c', 'crabConfigMC.py']
+DEBUG 2017-01-02 10:39:08,958: 	 CRABClient version: 3.3.1611
+DEBUG 2017-01-02 10:39:08,958: 	 Instance is prod
+DEBUG 2017-01-02 10:39:08,958: 	 Server base url is cmsweb.cern.ch
+DEBUG 2017-01-02 10:39:08,958: 	 Command url /crabserver/prod/workflow
+DEBUG 2017-01-02 10:39:08,958: 	 Started submission
+DEBUG 2017-01-02 10:39:08,958: 	 Working on /afs/cern.ch/work/h/hkaveh/workarea/CMSSW_8_0_20/src/whelicity1/MiniAnalyzer/test/crab_projects/crab_tutorial_May2015_MC_analysis
+ERROR 2017-01-02 10:39:09,382: 	 Invalid CRAB configuration: Analysis job type requires an input dataset or a set of user input files to run on.
+Suggestion: To specify an input dataset use the parameter Data.inputDataset. To specify a set of user input files use the parameter Data.userInputFiles.
+The documentation about the CRAB configuration file can be found in https://twiki.cern.ch/twiki/bin/view/CMSPublic/CRAB3ConfigurationFile
+ERROR 2017-01-02 10:39:09,382: 	 Caught exception
+Traceback (most recent call last):
+  File "/cvmfs/cms.cern.ch/crab3/slc6_amd64_gcc493/cms/crabclient/3.3.1611-comp3/bin/crab", line 160, in <module>
+    client()
+  File "/cvmfs/cms.cern.ch/crab3/slc6_amd64_gcc493/cms/crabclient/3.3.1611-comp3/bin/crab", line 148, in __call__
+    self.cmd()
+  File "/cvmfs/cms.cern.ch/crab3/slc6_amd64_gcc493/cms/crabclient/3.3.1611-comp3/lib/python2.7/site-packages/CRABClient/Commands/submit.py", line 98, in __call__
+    plugjobtype = crab_job_types[upper(self.configreq['jobtype'])](*pluginParams)
+  File "/cvmfs/cms.cern.ch/crab3/slc6_amd64_gcc493/cms/crabclient/3.3.1611-comp3/lib/python2.7/site-packages/CRABClient/JobType/BasicJobType.py", line 32, in __init__
+    raise ConfigurationException(msg)
+ConfigurationException: Invalid CRAB configuration: Analysis job type requires an input dataset or a set of user input files to run on.
+Suggestion: To specify an input dataset use the parameter Data.inputDataset. To specify a set of user input files use the parameter Data.userInputFiles.
+The documentation about the CRAB configuration file can be found in https://twiki.cern.ch/twiki/bin/view/CMSPublic/CRAB3ConfigurationFile

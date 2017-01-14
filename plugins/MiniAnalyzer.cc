@@ -124,17 +124,62 @@ private:
     TH1F* h_ALS_etaLDiLep;
     TH1F* h_ALS_ptLDiLep;
     //After MET Requirements
-    TH1F* h_AMS_ptLMuMu;
-    TH1F* h_AMS_ptLElMu;
-    TH1F* h_AMS_ptLElEl;
-    TH1F* h_AMS_ptLDiLep;
-    TH1F* h_AMS_mLMuMu;
-    TH1F* h_AMS_mLElEl;
-    TH1F* h_AMS_mLElMu;
-    TH1F* h_AMS_mLDiLep;
+    TH1F* h_AMS_ptLepMuMu;
+    TH1F* h_AMS_ptLepElMu;
+    TH1F* h_AMS_ptLepElEl;
+    TH1F* h_AMS_ptLepDiLep;
+    TH1F* h_AMS_mLepMuMu;
+    TH1F* h_AMS_mLepElEl;
+    TH1F* h_AMS_mLepElMu;
+    TH1F* h_AMS_mLepDiLep;
+    TH1F* h_AMS_METMuMu;
+    TH1F* h_AMS_METElEl;
+    TH1F* h_AMS_METElMu;
+    TH1F* h_AMS_METDiLep;
+    //After jet Selectin
+    TH1F* h_AJS_etaLepMuMu;
+    TH1F* h_AJS_ptLepMuMu;
+    TH1F* h_AJS_etaLepElEl;
+    TH1F* h_AJS_ptLepElEl;
+    TH1F* h_AJS_etaLepElMu;
+    TH1F* h_AJS_ptLepElMu;
+    TH1F* h_AJS_etaLepDiLep;
+    TH1F* h_AJS_ptLepDiLep;
+    //After Btag requirement
+    TH1F* h_ABS_etaLepMuMu;
+    TH1F* h_ABS_ptLepMuMu;
+    TH1F* h_ABS_etaLepElEl;
+    TH1F* h_ABS_ptLepElEl;
+    TH1F* h_ABS_etaLepElMu;
+    TH1F* h_ABS_ptLepElMu;
+    TH1F* h_ABS_etaLepDiLep;
+    TH1F* h_ABS_ptLepDiLep;
+    TH1F* h_ABS_mLepMuMu;
+    TH1F* h_ABS_mLepElEl;
+    TH1F* h_ABS_mLepElMu;
+    TH1F* h_ABS_mLepDiLep;
+    TH1F* h_ABS_METMuMu;
+    TH1F* h_ABS_METElEl;
+    TH1F* h_ABS_METElMu;
+    TH1F* h_ABS_METDiLep;
+    TH1F* h_ABS_NJetsMuMu;
+    TH1F* h_ABS_NJetsElMu;
+    TH1F* h_ABS_NJetsElEl;
+    TH1F* h_ABS_NJetsDiLep;
+    TH1F* h_ABS_NBJetsMuMu;
+    TH1F* h_ABS_NBJetsElEl;
+    TH1F* h_ABS_NBJetsElMu;
+    TH1F* h_ABS_NBJetsDiLep;
+    TH1F* h_ABS_ptLeadingJetMuMu;
+    TH1F* h_ABS_ptLeadingJetElEl;
+    TH1F* h_ABS_ptLeadingJetElMu;
+    TH1F* h_ABS_ptLeadingJetDiLep;
+    TH1F* h_ABS_etaLeadingJetMuMu;
+    TH1F* h_ABS_etaLeadingJetElEl;
+    TH1F* h_ABS_etaLeadingJetElMu;
+    TH1F* h_ABS_etaLeadingJetDiLep;
 
-
-
+    //After tt reconstruction
     TH1F* h_cosMuMu;
     TH1F* h_cosElEl;
     TH1F* h_cosElMu;

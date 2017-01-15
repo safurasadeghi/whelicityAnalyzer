@@ -797,6 +797,67 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
         }
     }
+    if(jets.size() > 0)
+    {
+        if(isDiMuon)
+        {
+
+
+            h_AJS_ptLepMuMu->Fill(posMu.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(posMu.pt(),theWeight);
+            h_AJS_ptLepMuMu->Fill(negMu.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(negMu.pt(),theWeight);
+
+            h_AJS_etaLepMuMu->Fill(posMu.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(posMu.eta(),theWeight);
+            h_AJS_etaLepMuMu->Fill(negMu.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(negMu.eta(),theWeight);
+        }
+        if(isDiElectron)
+        {
+
+            h_AJS_ptLepElEl->Fill(posEl.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(posEl.pt(),theWeight);
+            h_AJS_ptLepElEl->Fill(negEl.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(negEl.pt(),theWeight);
+
+            h_AJS_etaLepElEl->Fill(posEl.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(posEl.eta(),theWeight);
+            h_AJS_etaLepElEl->Fill(negEl.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(negEl.eta(),theWeight);
+
+
+        }
+        if(isElMu)
+        {
+
+            h_AJS_ptLepElMu->Fill(posEl.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(posEl.pt(),theWeight);
+            h_AJS_ptLepElMu->Fill(negMu.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(negMu.pt(),theWeight);
+
+            h_AJS_etaLepElMu->Fill(posEl.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(posEl.eta(),theWeight);
+            h_AJS_etaLepElMu->Fill(negMu.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(negMu.eta(),theWeight);
+
+        }
+        if(isMuEl)
+        {
+
+            h_AJS_ptLepElMu->Fill(posMu.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(posMu.pt(),theWeight);
+            h_AJS_ptLepElMu->Fill(negEl.pt(),theWeight);
+            h_AJS_ptLepDiLep->Fill(negEl.pt(),theWeight);
+
+            h_AJS_etaLepElMu->Fill(posMu.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(posMu.eta(),theWeight);
+            h_AJS_etaLepElMu->Fill(negEl.eta(),theWeight);
+            h_AJS_etaLepDiLep->Fill(negEl.eta(),theWeight);
+
+
+        }
+    }
 
     cout << "number of bjets"<< bjets.size() << endl;
 

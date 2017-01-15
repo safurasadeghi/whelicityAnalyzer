@@ -728,6 +728,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     {
         if(isDiMuon)
         {
+            h_ABS_NBJetsMuMu(bjets.size());
+            h_ABS_NJetsMuMu(jets.size());
+            h_ABS_NBJetsDiLep(bjets.size());
+            h_ABS_NJetsDiLep(jets.size());
+            h_ABS_etaLeadingJetMuMu(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetMuMu(bjets.at(0).pt(),theWeight);
+            h_ABS_etaLeadingJetDiLep(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetDiLep(bjets.at(0).pt(),theWeight);
 
             dileptonMass = posMu.mass() + negMu.mass();
             h_ABS_mLepMuMu->Fill(dileptonMass,theWeight);
@@ -745,6 +753,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
         if(isDiElectron)
         {
+            h_ABS_NBJetsElEl(bjets.size());
+            h_ABS_NJetsElEl(jets.size());
+            h_ABS_NBJetsDiLep(bjets.size());
+            h_ABS_NJetsDiLep(jets.size());
+            h_ABS_etaLeadingJetElEl(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetElEl(bjets.at(0).pt(),theWeight);
+            h_ABS_etaLeadingJetDiLep(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetDiLep(bjets.at(0).pt(),theWeight);
             dileptonMass = posEl.mass() + negEl.mass();
             h_ABS_mLepElEl->Fill(dileptonMass,theWeight);
             h_ABS_mLepDiLep->Fill(dileptonMass,theWeight);
@@ -763,6 +779,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
         if(isElMu)
         {
+            h_ABS_NBJetsElMu(bjets.size());
+            h_ABS_NJetsElMu(jets.size());
+            h_ABS_NBJetsDiLep(bjets.size());
+            h_ABS_NJetsDiLep(jets.size());
+            h_ABS_etaLeadingJetElMu(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetElMu(bjets.at(0).pt(),theWeight);
+            h_ABS_etaLeadingJetDiLep(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetDiLep(bjets.at(0).pt(),theWeight);
             dileptonMass = posEl.mass() + negMu.mass();
             h_ABS_mLepElMu->Fill(dileptonMass,theWeight);
             h_ABS_mLepDiLep->Fill(dileptonMass,theWeight);
@@ -780,6 +804,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         }
         if(isMuEl)
         {
+            h_ABS_NBJetsElMu(bjets.size());
+            h_ABS_NJetsElMu(jets.size());
+            h_ABS_NBJetsDiLep(bjets.size());
+            h_ABS_NJetsDiLep(jets.size());
+            h_ABS_etaLeadingJetElMu(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetElMu(bjets.at(0).pt(),theWeight);
+            h_ABS_etaLeadingJetDiLep(bjets.at(0).eta(),theWeight);
+            h_ABS_ptLeadingJetDiLep(bjets.at(0).pt(),theWeight);
             dileptonMass = posMu.mass() + negEl.mass();
             h_ABS_mLepElMu->Fill(dileptonMass,theWeight);
             h_ABS_mLepDiLep->Fill(dileptonMass,theWeight);
@@ -797,6 +829,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
         }
     }
+    //After jet selection
     if(jets.size() > 0)
     {
         if(isDiMuon)

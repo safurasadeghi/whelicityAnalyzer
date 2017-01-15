@@ -278,9 +278,34 @@ MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
     h_cosGen = fs->make<TH1F>("h_cosGen",";cos(#theta);",10,-1,1);
     h_GenTTbarM = fs->make<TH1F>("h_GenTTbarM",";M_{TTbar};",100,90,1300);
     h_etaMu = fs->make<TH1F>("h_EtaMu",";#eta_{l};",100,-3,3);
-    h_TTbarM = fs->make<TH1F>("h_TTbarM",";M_{TTbar};",100,90,1300);
+    h_TTbarM = fs->make<TH1F>("h_TTbarM",";M_{TTbar};",100,0,1300);
     h_PtMu = fs->make<TH1F>("h_PtMu",";Mu_{Pt};",100,0.,200.);
     h_NPV = fs->make<TH1F>("h_NPV",";NPV;",100,0,30);
+    h_NBJetsMuMu = fs->make<TH1F>("h_NBJetsMuMu",";N_{BJets};",30,0,8);
+    h_NBJetsElEl = fs->make<TH1F>("h_NBJetsElEl",";N_{BJets};",30,0,8);
+    h_NBJetsElMu = fs->make<TH1F>("h_NBJetsElMu",";N_{BJets};",30,0,8);
+    h_NBJetsDiLep = fs->make<TH1F>("h_NBJetsDiLep",";N_{BJets};",30,0,8);
+    h_yTMuMu = fs->make<TH1F>("h_yTMuMu",";y^{Top};",100,-3,3);
+    h_yTElEl = fs->make<TH1F>("h_yTElEl",";y^{Top};",100,-3,3);
+    h_yTElMu = fs->make<TH1F>("h_yTElMu",";y^{Top};",100,-3,3);
+    h_yTDiLep = fs->make<TH1F>("h_yTDiLep",";y^{Top};",100,-3,3);
+    h_yWMuMu = fs->make<TH1F>("h_yWMuMu",";y^{W};",100,-3,3);
+    h_yWElEl = fs->make<TH1F>("h_yWElEl",";y^{W};",100,-3,3);
+    h_yWElMu = fs->make<TH1F>("h_yWElMu",";y^{W};",100,-3,3);
+    h_yWDiLep = fs->make<TH1F>("h_yWDiLep",";y^{W};",100,-3,3);
+    h_ptTMuMu= fs->make<TH1F>("h_h_ptTMuMu",";Pt^{Top};",100,0.,300.);
+    h_ptTElEl= fs->make<TH1F>("h_h_ptTElEl",";Pt^{Top};",100,0.,300.);
+    h_ptTElMu= fs->make<TH1F>("h_h_ptTElMu",";Pt^{Top};",100,0.,300.);
+    h_ptTDiLep= fs->make<TH1F>("h_h_ptTDiLep",";Pt^{Top};",100,0.,300.);
+    h_ptWMuMu= fs->make<TH1F>("h_h_ptWMuMu",";Pt^{W};",100,0.,300.);
+    h_ptWElEl= fs->make<TH1F>("h_h_ptWElEl",";Pt^{W};",100,0.,300.);
+    h_ptWElMu= fs->make<TH1F>("h_h_ptWElMu",";Pt^{W};",100,0.,300.);
+    h_ptWDiLep= fs->make<TH1F>("h_h_ptWDiLep",";Pt^{W};",100,0.,300.);
+    h_mTTbarMuMu =fs->make<TH1F>("h_mTTbarMuMu",";M^{tt};",100,0,1300);
+    h_mTTbarElEl =fs->make<TH1F>("h_mTTbarElEl",";M^{tt};",100,0,1300);
+    h_mTTbarElMu =fs->make<TH1F>("h_mTTbarElMu",";M^{tt};",100,0,1300);
+
+
 
     h_ALS_etaLMuMu = fs->make<TH1F>("h_ALS_EtaLepMuMu",";#eta_{l};",100,-3,3);
     h_ALS_etaLElEl = fs->make<TH1F>("h_ALS_EtaLepElEl",";#eta_{l};",100,-3,3);
@@ -316,6 +341,22 @@ MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
     h_ABS_METElEl = fs->make<TH1F>("h_ABS_METElEl",";MET;",100,0.,300.);
     h_ABS_METElMu = fs->make<TH1F>("h_ABS_METElMu",";MET;",100,0.,300.);
     h_ABS_METDiLep = fs->make<TH1F>("h_ABS_METDiLep",";MET;",100,0.,300.);
+    h_ABS_NBJetsMuMu = fs->make<TH1F>("h_ABS_NBJetsMuMu",";N_{BJets};",30,0,8);
+    h_ABS_NBJetsElEl = fs->make<TH1F>("h_ABS_NBJetsElEl",";N_{BJets};",30,0,8);
+    h_ABS_NBJetsElMu = fs->make<TH1F>("h_ABS_NBJetsElMu",";N_{BJets};",30,0,8);
+    h_ABS_NBJetsDiLep = fs->make<TH1F>("h_ABS_NBJetsDiLep",";N_{BJets};",30,0,8);
+    h_ABS_NJetsMuMu = fs->make<TH1F>("h_ABS_NJetsMuMu",";N_{BJets};",30,0,8);
+    h_ABS_NJetsElEl = fs->make<TH1F>("h_ABS_NJetsElEl",";N_{BJets};",30,0,8);
+    h_ABS_NJetsElMu = fs->make<TH1F>("h_ABS_NJetsElMu",";N_{BJets};",30,0,8);
+    h_ABS_NJetsDiLep = fs->make<TH1F>("h_ABS_NJetsDiLep",";N_{BJets};",30,0,8);
+    h_ABS_etaLeadingJetMuMu = fs->make<TH1F>("h_ABS_etaLeadingJetMuMu",";#eta_{l};",100,-3,3);
+    h_ABS_etaLeadingJetElEl = fs->make<TH1F>("h_ABS_EtaLeadingJetElEl",";#eta_{l};",100,-3,3);
+    h_ABS_etaLeadingJetElMu = fs->make<TH1F>("h_ABS_EtaLeadingJetElMu",";#eta_{l};",100,-3,3);
+    h_ABS_etaLeadingJetDiLep = fs->make<TH1F>("h_ABS_EtaLeadingJetDiLep",";#eta_{l};",100,-3,3);
+    h_ABS_ptLeadingJetMuMu = fs->make<TH1F>("h_ABS_PtLeadingJetMuMu",";Pt_{l};",100,0.,300.);
+    h_ABS_ptLeadingJetElMu = fs->make<TH1F>("h_ABS_PtLeadingJetElMu",";Pt_{l};",100,0.,300.);
+    h_ABS_ptLeadingJetElEl = fs->make<TH1F>("h_ABS_PtLeadingJetElEl",";Pt_{l};",100,0.,300.);
+    h_ABS_ptLeadingJetDiLep = fs->make<TH1F>("h_ABS_ptLeadingJetDiLep",";Pt_{l};",100,0.,300.);
 
     h_AMS_ptLepMuMu = fs->make<TH1F>("h_AMS_PtLepMuMu",";Pt_{l};",100,0.,300.);
     h_AMS_ptLepElMu = fs->make<TH1F>("h_AMS_PtLepElMu",";Pt_{l};",100,0.,300.);
@@ -940,6 +981,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             t1 = W1 + BJet;
             t2 = W2 + BBJet;
             ttbar = t1 + t2;
+
+            h_yTMuMu(t1.Rapidity(),theWeight);
+            h_yTMuMu(t2.Rapidity(),theWeight);
+            h_ptTMuMu(t1.Pt(),theWeight);
+            h_ptTMuMu(t2.Pt(),theWeight);
+            h_ptTDiLep(t1.Pt(),theWeight);
+            h_ptTDiLep(t2.Pt(),theWeight);
+            h_mTTbarMuMu(ttbar.M(),theWeight);
             h_TTbarM->Fill(ttbar.M(),theWeight);
 
 

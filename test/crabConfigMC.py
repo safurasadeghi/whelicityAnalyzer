@@ -13,7 +13,7 @@ config.Data.inputDataset = '/TTJets_DiLept_TuneCUETP8M1_13TeV-madgraphMLM-pythia
 config.Data.inputDBS = 'global'
 config.Data.splitting = 'FileBased'
 config.Data.unitsPerJob = 10
-config.Data.outLFNDirBase = '/store/user/hkaveh/cmsdata3/kaveh/'
+config.Data.outLFNDirBase = '/store/user/hkaveh/'
 config.Data.publication = True
 config.Data.outputDatasetTag = 'CRAB3_MC_analysis'
 

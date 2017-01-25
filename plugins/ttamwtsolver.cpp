@@ -32,7 +32,8 @@ TtAMWTSolver::TtAMWTSolver(bool isData,const double b, const double e, const dou
     LHAPDF::setPDFPath(path);
     LHAPDF::initPDFSet(pdfSet);
 
-    string dataPath = getEnvVar("JER_DATA_PATH");
+//    string dataPath = getEnvVar("JER_DATA_PATH");
+    string dataPath = "../data/";
     string ptFileName,  phiFileName;
     ptFileName = dataPath + "Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt";
 //    etaFileName = dataPath + "Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt";

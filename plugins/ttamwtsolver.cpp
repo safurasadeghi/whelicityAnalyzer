@@ -11,7 +11,7 @@ string TtAMWTSolver::getEnvVar( string const & key ) const
     char * val = getenv( key.c_str() );
     return val == NULL ? string("") : string(val);
 }
-TtAMWTSolver::TtAMWTSolver(bool isData,const double b, const double e, const double s, const double mW, const double mB):topmass_begin(b),
+TtAMWTSolver::TtAMWTSolver(bool isData, const double b, const double e, const double s, const double mW, const double mB, const string ptRes, const string phiRes):topmass_begin(b),
     topmass_end(e),
     topmass_step(s),
     mw(mW),
@@ -33,11 +33,14 @@ TtAMWTSolver::TtAMWTSolver(bool isData,const double b, const double e, const dou
     LHAPDF::initPDFSet(pdfSet);
 
 //    string dataPath = getEnvVar("JER_DATA_PATH");
-    string dataPath = "./data/";
+//    string dataPath = "./data/";
     string ptFileName,  phiFileName;
-    ptFileName = dataPath + "Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt";
+    ptFileName = ptRes;
+    phiFileName = phiRes;
+
+//    ptFileName = "Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt";
 //    etaFileName = dataPath + "Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt";
-    phiFileName = dataPath +  "Spring16_25nsV10_MC_PhiResolution_AK4PFchs.txt";
+//    phiFileName = "Spring16_25nsV10_MC_PhiResolution_AK4PFchs.txt";
 //    SFFileName = dataPath + "Spring16_25nsV10_MC_SF_AK4PFchs.txt";
     //TRandom 3 class
     rand3 = new TRandom3();
@@ -49,6 +52,9 @@ TtAMWTSolver::TtAMWTSolver(bool isData,const double b, const double e, const dou
     phiResol = new JME::JetResolution(phiFileName);
 
 //   SF = new JME::JetResolutionScaleFactor(SFFileName);
+
+    h_ptsm = new TH1F("h_ptsm","",100,0,300);
+    h_etasm = new TH1F("h_etasm","",100,-3,3);
 
 }
 
@@ -103,7 +109,13 @@ TtAMWTSolver::NeutrinoSolution TtAMWTSolver::NuSolver(const TLorentzVector &LV_l
         nuSol.neutrinoBar = reco::LeafCandidate(0, maxLV_n_ );
         nuSol.weight = weightmax;
         return nuSol;
-    }
+}
+
+void TtAMWTSolver::getHistos(TH1F *pt, TH1F *phi)
+{
+    pt = h_ptsm;
+    phi= h_etasm;
+}
 
     double TtAMWTSolver::get_weight(const TLorentzVector & bquark1, const TLorentzVector & bquark2,
                                     const TLorentzVector & lep_p, const TLorentzVector & lep_m, const TLorentzVector & nu1,
@@ -239,13 +251,13 @@ TtAMWTSolver::NeutrinoSolution TtAMWTSolver::NuSolver(const TLorentzVector &LV_l
             //     Pt_sm  = orig_jets.at(sui).Pt()  * (1 + (vPtRes.at(sui)->GetRandom() - 1) * 1.1);
 //            Pt_sm  = orig_jets.at(sui).Pt()  * vPtRes.at(sui)->GetRandom();
             Pt_sm = orig_jets.at(sui).Pt() + ptResol->getResolution(par)*rand3->Gaus();
-            
+            h_ptsm->Fill(Pt_sm);
             gRandom->SetSeed(rand3->Integer(iseed));
             Eta_sm = orig_jets.at(sui).Eta();
 
             gRandom->SetSeed(rand3->Integer(iseed));
-            Phi_sm = orig_jets.at(sui).Phi() + phiResol->getResolution(par)*rand3->Gaus();;
-
+            Phi_sm = orig_jets.at(sui).Phi() + phiResol->getResolution(par)*rand3->Gaus();
+            h_etasm->Fill(Phi_sm);
             v_temp.SetPtEtaPhiM(Pt_sm, Eta_sm, Phi_sm, orig_jets.at(sui).M());
 
             sum_jpx += orig_jets.at(sui).Px();

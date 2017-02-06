@@ -17,7 +17,12 @@ Whelicity = cms.EDAnalyzer("MiniAnalyzer",
 	rho = cms.InputTag("fixedGridRhoFastjetAll"),
     effAreasConfigFile = cms.FileInPath("RecoEgamma/ElectronIdentification/data/Spring15/effAreaElectrons_cone03_pfNeuHadronsAndPhotons_25ns.txt"),
 	ttgen = cms.InputTag("genEvt"),
-	isData = cms.bool(False)
+	isData = cms.bool(False),
+	ptRes = cms.string("Spring16_25nsV10_MC_PtResolution_AK4PFchs.txt"),
+	phiRes = cms.string("Spring16_25nsV10_MC_PhiResolution_AK4PFchs.txt"),
+	outFileName = cms.string("outFile.root"),
+	triggerResults = cms.InputTag("TriggerResults","","HLT")
+	
 )
 
 

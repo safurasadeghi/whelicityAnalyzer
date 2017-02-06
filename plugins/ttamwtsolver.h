@@ -31,9 +31,10 @@ public:
 
     void SetConstraints(const double xx=0, const double yy=0);
     void SetRho(const double rho_){rho=rho_;}
-    TtAMWTSolver(bool isData, const double b, const double e, const double s, const double mW, const double mB);
+    TtAMWTSolver(bool isData, const double b, const double e, const double s, const double mW, const double mB, const string ptRes,const string phiRes);
     ~TtAMWTSolver();
     NeutrinoSolution NuSolver(const TLorentzVector &LV_l, const TLorentzVector &LV_l_, const TLorentzVector &LV_b, const TLorentzVector &LV_b_);
+    void getHistos(TH1F* pt,TH1F* phi);
 private:
 
     int nbrJetSmear;
@@ -95,7 +96,8 @@ private:
     double n1;
     double n2;
     double n3;
-
+    TH1F *h_ptsm;
+    TH1F *h_etasm;
     ///
     TLorentzVector LV_n, LV_n_, LV_t, LV_t_, LV_tt_t, LV_tt_t_;
     /// provisional

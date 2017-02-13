@@ -8,9 +8,11 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <random>
+#include <time.h>
 #include <TRandom3.h>
 #include <TH1.h>
-
+#include <TFile.h>
 #include "TLorentzVector.h"
 #include "TMath.h"
 
@@ -31,10 +33,14 @@ public:
 
     void SetConstraints(const double xx=0, const double yy=0);
     void SetRho(const double rho_){rho=rho_;}
-    TtAMWTSolver(bool isData, const double b, const double e, const double s, const double mW, const double mB, const string ptRes,const string phiRes);
+    TtAMWTSolver(bool isData, const double b, const double e, const double s, const double mW, const double mB, const string ptRes,const string phiRes,const string sfRes);
     ~TtAMWTSolver();
     NeutrinoSolution NuSolver(const TLorentzVector &LV_l, const TLorentzVector &LV_l_, const TLorentzVector &LV_b, const TLorentzVector &LV_b_);
-    void getHistos(TH1F* pt,TH1F* phi);
+
+
+
+    void writeOut();
+
 private:
 
     int nbrJetSmear;
@@ -98,11 +104,13 @@ private:
     double n3;
     TH1F *h_ptsm;
     TH1F *h_etasm;
+    TH1F *h_phism;
+    TH1F *h_SmearF;
     ///
     TLorentzVector LV_n, LV_n_, LV_t, LV_t_, LV_tt_t, LV_tt_t_;
     /// provisional
     TLorentzVector genLV_n, genLV_n_;
-
+//    std::mt19937 m_random_generator(std::uint32_t 87847938);
     TRandom3* rand3;
 //    JetResolution* ptResol;
 //    JetResolution* etaResol;
@@ -111,13 +119,15 @@ private:
     JME::JetResolution* ptResol;
 
     JME::JetResolution* phiResol;
-//    JME::JetResolutionScaleFactor* SF;
+    JME::JetResolutionScaleFactor* SF;
+    vector<double> jet_energy_scale_factor;
 
     double weightmax=0;
 
     double get_top_pt_prob(const double pt) const;
     double get_2bjet_prob(const TLorentzVector &jet1, const TLorentzVector &jet2, map<double, double> &mapJetPhi2Discr) const;
-   string getEnvVar(const string &key) const;
+    string getEnvVar(const string &key) const;
+    TFile* f_out;
 };
 
 #endif // TTAMWTSOLVER_H

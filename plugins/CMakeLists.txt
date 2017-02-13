@@ -8,5 +8,5 @@ project(whelicity)
 include_directories("/cmsdata3/kaveh/workarea/cmssw/")
 include_directories("/cmsdata3/kaveh/scratch/lhapdf-5.8.9/../local/include")
 include_directories("/opt/root-6.06.08/include/")
-add_library(my MiniAnalyzer.cc ttamwtsolver.cpp)
+add_library(my MiniAnalyzer.cc ttamwtsolver.cpp MSETools.cc)
 

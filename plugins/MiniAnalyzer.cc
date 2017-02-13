@@ -53,6 +53,7 @@
 #include "RecoEgamma/EgammaTools/interface/EffectiveAreas.h"
 #include "AnalysisDataFormats/TopObjects/interface/TtDilepEvtSolution.h"
 #include "ttamwtsolver.h"
+#include "MSETools.h"
 
 
 
@@ -215,8 +216,8 @@ private:
     TH1F* h_yWDiLep;
     TH1F* h_PtMu;
     TH1F* h_etaMu;
-    TH1F* h_ptsm;
-    TH1F* h_etasm;
+
+
     double coriso= 999; // initialise to dummy value
     double coriso2= 999; // initialise to dummy value
     double DiLepMass;
@@ -231,6 +232,8 @@ private:
     bool isData;
     string ptRes;
     string phiRes;
+    string sfRes;
+
     int NEvent=0;
     string outfileName;
     //TTree defenition for storing important stuff
@@ -253,7 +256,11 @@ private:
     int n_DiMuHLT = 0;
     int n_DiElHLT = 0;
     int n_ElMuHLT = 0;
-
+    int n_afterMet = 0;
+    int n_after2Jets = 0;
+    int n_after2BJets = 0;
+    int n_afterTop = 0;
+    edm::View<pat::PackedGenParticle> genColl;
 
 
 
@@ -279,11 +286,12 @@ MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
     isData((iConfig.getParameter<bool>("isData"))),
     ptRes( (iConfig.getParameter<string>("ptRes"))),
     phiRes( (iConfig.getParameter<string>("phiRes")) ),
+    sfRes( (iConfig.getParameter<string>("sfRes")) ),
     outfileName((iConfig.getParameter<string>("outFileName"))),
     triggerResluts_(mayConsume<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults")))
 {
     // initializing the solver
-    amwtSolver = new TtAMWTSolver(isData,171.5,173.5,100,80.4,4.8,ptRes,phiRes);
+    amwtSolver = new TtAMWTSolver(isData,171.5,173.5,100,80.4,4.8,ptRes,phiRes,sfRes);
 
     // Initializing  output root file;
     f_outFile = TFile::Open(outfileName.c_str(),"RECREATE");
@@ -329,6 +337,8 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         iEvent.getByToken( genEvtInfo_, genEvtInfo );
         iEvent.getByToken( lheEvtInfo_, lhEvtInfo);
         iEvent.getByToken(ttgenEvt_, genEvent);
+        genColl = *packed;
+
     }
     edm::Handle<double> rhoHandle_;
     iEvent.getByToken( rho_,rhoHandle_);
@@ -497,6 +507,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     }
 
+
     //    // cout << posMu.charge() << " charges " << negMu.charge() << endl;
     ////////////////////ELECTRONS//////////////////////////
     /// electron identification
@@ -564,16 +575,20 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     //After Lepton Selection
     if(isPosMu && isNegMu) isDiMuon = true;
-
+    if(isDiMuon)++n_afterDiMu;
     if(isPosEl && isNegEl) isDiElectron = true;
+    if(isDiElectron)++n_afterDiEl;
     if( isPosEl && isNegMu)  isElMu = true;
     if( isNegEl && isPosMu ) isMuEl = true;
+    if(isElMu || isMuEl) ++n_afterElMu;
     if(isDiMuon || isDiElectron || isElMu ) isDiLeptonic = true;
+    if(!isDiLeptonic)return;
+    ++n_afterDiLepton;
     if(isDiMuon && !(b_Mu1 || b_Mu2) ) return;
     if(isDiElectron && !(b_ElEl2)) return;
     if(isElMu && !(b_ElMu1 || b_ElMu2 || b_ElMu3 || b_ElMu4 || b_MuEl1 || b_MuEl2)) return;
     if(isMuEl && !(b_ElMu1 || b_ElMu2 || b_ElMu3 || b_ElMu4 || b_MuEl1 || b_MuEl2)) return;
-
+    ++n_afterHLT;
 
 
     if(isDiMuon)
@@ -634,7 +649,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     if(isDiMuon && met.pt() < 30) return;
     if(isDiElectron && met.pt() < 30) return;
     if((isElMu || isMuEl) && met.pt() <0) return;
-
+    ++n_afterMet;
     if(met.pt() > 0)
     {
         if(isDiMuon)
@@ -877,114 +892,464 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
         }
     }
+    if(njets.size() < 2) return;
+    ++n_after2Jets;
+    if(bjets.size() < 2) return;
+    ++n_after2BJets;
 
-    // cout << "number of bjets"<< bjets.size() << endl;
+    //////////////////////GEN LEVEL////////////////
+    if(!isData){
+        TLorentzVector W1;
+        TLorentzVector W2;
+        TLorentzVector t1;
+        TLorentzVector t2;
+        TLorentzVector ttbar;
+        TLorentzVector genPosLep;
+        TLorentzVector genNegLep;
+        const pat::PackedGenParticle matchedPosMu = mse::getMatchedGenParticle(posMu, genColl,13);
 
-    // cout << posMu.pt() << " Muons " << negMu.pt() << endl;
-    if(bjets.size() >= 2) // cout << bjets.at(0).p4() << " Jets "<< bjets.at(1).p4() << endl;
-        // cout << met.pt() << "met"<< endl;
+        const reco::GenParticle posWMuMu = mse::getMotherPacked(matchedPosMu);
+        const reco::GenParticle topMuMu = mse::getMother(posWMuMu);
+        if(matchedPosMu.pt() != 0 )  cout << matchedPosMu.pt() << "muon match mother"<< posWMuMu.pdgId()<<"topMuMu Mother pdgId"<< topMuMu.pdgId() << endl;
+        const pat::PackedGenParticle matchedNegMu = mse::getMatchedGenParticle(negMu, genColl,13);
+        const reco::GenParticle negWMuMu = mse::getMotherPacked(matchedNegMu);
+        const reco::GenParticle antitopMuMu = mse::getMother(negWMuMu);
+        if(matchedPosMu.pt()>30 && matchedNegMu.pt() > 30 && posWMuMu.pdgId() == 24 && topMuMu.pdgId() == 6 && negWMuMu.pdgId() == -24 && antitopMuMu.pdgId() == -6  )
+        {
+            genPosLep.Clear();
+            genNegLep.Clear();
+            W1.Clear();
+            W2.Clear();
+            t1.Clear();
+            t2.Clear();
+            ttbar.Clear();
+            genPosLep.SetPtEtaPhiM(matchedPosMu.pt(),matchedPosMu.eta(),matchedPosMu.phi(),matchedPosMu.mass());
+            genNegLep.SetPtEtaPhiM(matchedNegMu.pt(),matchedNegMu.eta(),matchedNegMu.phi(),matchedNegMu.mass());
 
-        //////////////////////GEN LEVEL////////////////
+            W1.SetPtEtaPhiM(posWMuMu.pt(),posWMuMu.eta(),posWMuMu.phi(),posWMuMu.mass());
+            W2.SetPtEtaPhiM(negWMuMu.pt(),negWMuMu.eta(),negWMuMu.phi(),negWMuMu.mass());
 
-        if(!isData){
-            TLorentzVector genPosLep;
-            TLorentzVector genNegLep;
-            //    TLorentzVector genT;
-            //    TLorentzVector genTbar;
-            TLorentzVector genNu;
-            TLorentzVector genNubar;
-            TLorentzVector genB;
-            TLorentzVector genBbar;
-            TLorentzVector W1;
-            TLorentzVector W2;
-            TLorentzVector t1;
-            TLorentzVector t2;
-            TLorentzVector ttbar;
+            t1.SetPtEtaPhiM(topMuMu.pt(),topMuMu.eta(),topMuMu.phi(),topMuMu.mass());
+            t2.SetPtEtaPhiM(antitopMuMu.pt(),antitopMuMu.eta(),antitopMuMu.phi(),antitopMuMu.mass());
 
-            TLorentzVector dilepton;
-            //    TLorentzVector genWplus;
-            //    TLorentzVector genWminus;
-            if ( genEvent->isFullLeptonic(true) ){
-                genPosLep.SetPtEtaPhiM(genEvent->lepton(true)->pt(),genEvent->lepton(true)->eta(),genEvent->lepton(true)->phi(),genEvent->lepton(true)->mass());
-                genNegLep.SetPtEtaPhiM(genEvent->leptonBar(true)->pt(),genEvent->leptonBar(true)->eta(),genEvent->leptonBar(true)->phi(),genEvent->leptonBar(true)->mass());
-                //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
-                //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
-                genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
-                genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
-                genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
-                genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
-                //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
-                //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
-
-                //                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
-                //                dilepton = genPosLep + genNegLep;
-                //                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-                //                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
-                //                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
-                //                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
-                //                        TLorentzVector nu;
-                //                        TLorentzVector nuBar;
-                //                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
-                //                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
-                //                        W1 = nu + genPosLep;
-                //                        W2 = nuBar + genNegLep;
+            ttbar = t1 + t2;
+            h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            TruthMTT.push_back(ttbar.M());
 
 
-                //                        t1 = W1 + genB;
-                //                        t2 = W2 + genBbar;
-                //                        ttbar = t1 + t2;
-                //                        h_GenTTbarM->Fill(ttbar.M(),theWeight);
-                //                        TruthMTT.push_back(ttbar.M());
+            genPosLep.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(genPosLep.Vect()));
+            h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            TruthCos.push_back(TMath::Cos(theta1));
 
-
-
-
-                //                        genPosLep.Boost(-W1.BoostVector());
-                //                        W1.Boost(-t1.BoostVector());
-                //                        float theta1 = (W1.Angle(genPosLep.Vect()));
-                //                        TruthCos.push_back(TMath::Cos(theta1));
-                //                        h_cosGen->Fill(TMath::Cos(theta1),theWeight);
-                //                        genNegLep.Boost(-W2.BoostVector());
-                //                        W2.Boost(-t2.BoostVector());
-                //                        float theta2 = (W2.Angle(genNegLep.Vect()));
-                //                        TruthCos.push_back(TMath::Cos(theta2));
-
-                //                        h_cosGen->Fill(TMath::Cos(theta2),theWeight);
-
-
-                //                    }
-
-                //                }
-//                dilepton = genPosLep + genNegLep;
-//                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-//                    W1 = genPosLep + genNu;
-//                    W2 = genNegLep +genNubar;
-//                    t1 = W1 + genB;
-//                    t2 = W2 + genBbar;
-//                    ttbar = t1 + t2;
-//                    h_GenTTbarM->Fill(ttbar.M(),theWeight);
-//                    TruthMTT.push_back(ttbar.M());
+            genNegLep.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(genNegLep.Vect()));
+            h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+            TruthCos.push_back(TMath::Cos(theta2));
 
 
 
 
-//                    genPosLep.Boost(-W1.BoostVector());
-//                    W1.Boost(-t1.BoostVector());
-//                    float theta1 = (W1.Angle(genPosLep.Vect()));
-//                    TruthCos.push_back(TMath::Cos(theta1));
-//                    h_cosGen->Fill(TMath::Cos(theta1),theWeight);
-//                    genNegLep.Boost(-W2.BoostVector());
-//                    W2.Boost(-t2.BoostVector());
-//                    float theta2 = (W2.Angle(genNegLep.Vect()));
-//                    TruthCos.push_back(TMath::Cos(theta2));
 
-//                    h_cosGen->Fill(TMath::Cos(theta2),theWeight);
-//                }
+        }
 
+        const pat::PackedGenParticle matchedPosEl = mse::getMatchedGenParticle(posEl, genColl,11);
+
+        const reco::GenParticle posWElEl = mse::getMotherPacked(matchedPosEl);
+        const reco::GenParticle topElEl = mse::getMother(posWElEl);
+        if(matchedPosEl.pt() != 0 )  cout << matchedPosEl.pt() << "Elon match mother"<< posWElEl.pdgId()<<"topElEl Mother pdgId"<< topElEl.pdgId() << endl;
+        const pat::PackedGenParticle matchedNegEl = mse::getMatchedGenParticle(negEl, genColl,11);
+        const reco::GenParticle negWElEl = mse::getMotherPacked(matchedNegEl);
+        const reco::GenParticle antitopElEl = mse::getMother(negWElEl);
+        if(matchedPosEl.pt()>30 && matchedNegEl.pt() > 30 && posWElEl.pdgId() == 24 && topElEl.pdgId() == 6 && negWElEl.pdgId() == -24 && antitopElEl.pdgId() == -6  )
+        {
+            genPosLep.Clear();
+            genNegLep.Clear();
+            W1.Clear();
+            W2.Clear();
+            t1.Clear();
+            t2.Clear();
+            ttbar.Clear();
+            genPosLep.SetPtEtaPhiM(matchedPosEl.pt(),matchedPosEl.eta(),matchedPosEl.phi(),matchedPosEl.mass());
+            genNegLep.SetPtEtaPhiM(matchedNegEl.pt(),matchedNegEl.eta(),matchedNegEl.phi(),matchedNegEl.mass());
+
+            W1.SetPtEtaPhiM(posWElEl.pt(),posWElEl.eta(),posWElEl.phi(),posWElEl.mass());
+            W2.SetPtEtaPhiM(negWElEl.pt(),negWElEl.eta(),negWElEl.phi(),negWElEl.mass());
+
+            t1.SetPtEtaPhiM(topElEl.pt(),topElEl.eta(),topElEl.phi(),topElEl.mass());
+            t2.SetPtEtaPhiM(antitopElEl.pt(),antitopElEl.eta(),antitopElEl.phi(),antitopElEl.mass());
+
+            ttbar = t1 + t2;
+            h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            TruthMTT.push_back(ttbar.M());
+
+
+            genPosLep.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(genPosLep.Vect()));
+            h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            TruthCos.push_back(TMath::Cos(theta1));
+
+            genNegLep.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(genNegLep.Vect()));
+            h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+            TruthCos.push_back(TMath::Cos(theta2));
+
+        }
+
+        const pat::PackedGenParticle matchedPosEMEl = mse::getMatchedGenParticle(posEl, genColl,11);
+
+        const reco::GenParticle posWElMu = mse::getMotherPacked(matchedPosEMEl);
+        const reco::GenParticle topElMu = mse::getMother(posWElMu);
+        if(matchedPosEl.pt() != 0 )  cout << matchedPosEMEl.pt() << "Elon match mother"<< posWElMu.pdgId()<<"topElEl Mother pdgId"<< topElMu.pdgId() << endl;
+        const pat::PackedGenParticle matchedNegEMMu = mse::getMatchedGenParticle(negMu, genColl,13);
+        const reco::GenParticle negWElMu = mse::getMotherPacked(matchedNegEMMu);
+        const reco::GenParticle antitopElMu = mse::getMother(negWElMu);
+        if(matchedPosEMEl.pt()>30 && matchedNegEMMu.pt() > 30 && posWElMu.pdgId() == 24 && topElMu.pdgId() == 6 && negWElMu.pdgId() == -24 && antitopElMu.pdgId() == -6  )
+        {
+            genPosLep.Clear();
+            genNegLep.Clear();
+            W1.Clear();
+            W2.Clear();
+            t1.Clear();
+            t2.Clear();
+            ttbar.Clear();
+            genPosLep.SetPtEtaPhiM(matchedPosEMEl.pt(),matchedPosEMEl.eta(),matchedPosEMEl.phi(),matchedPosEMEl.mass());
+            genNegLep.SetPtEtaPhiM(matchedNegEMMu.pt(),matchedNegEMMu.eta(),matchedNegEMMu.phi(),matchedNegEMMu.mass());
+
+            W1.SetPtEtaPhiM(posWElMu.pt(),posWElMu.eta(),posWElMu.phi(),posWElMu.mass());
+            W2.SetPtEtaPhiM(negWElMu.pt(),negWElMu.eta(),negWElMu.phi(),negWElMu.mass());
+
+            t1.SetPtEtaPhiM(topElMu.pt(),topElMu.eta(),topElMu.phi(),topElMu.mass());
+            t2.SetPtEtaPhiM(antitopElMu.pt(),antitopElMu.eta(),antitopElMu.phi(),antitopElMu.mass());
+
+            ttbar = t1 + t2;
+            h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            TruthMTT.push_back(ttbar.M());
+
+
+            genPosLep.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(genPosLep.Vect()));
+            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            TruthCos.push_back(TMath::Cos(theta1));
+
+            genNegLep.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(genNegLep.Vect()));
+            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+            TruthCos.push_back(TMath::Cos(theta2));
+
+        }
+
+        const pat::PackedGenParticle matchedPosEMMu = mse::getMatchedGenParticle(posEl, genColl,13);
+
+        const reco::GenParticle posWElMu2 = mse::getMotherPacked(matchedPosEMMu);
+        const reco::GenParticle topElMu2 = mse::getMother(posWElMu2);
+        if(matchedPosEl.pt() != 0 )  cout << matchedPosEMMu.pt() << "Elon match mother"<< posWElMu2.pdgId()<<"topElEl Mother pdgId"<< topElMu2.pdgId() << endl;
+        const pat::PackedGenParticle matchedNegEMEl = mse::getMatchedGenParticle(negMu, genColl,11);
+        const reco::GenParticle negWElMu2 = mse::getMotherPacked(matchedNegEMEl);
+        const reco::GenParticle antitopElMu2 = mse::getMother(negWElMu2);
+        if(matchedPosEMMu.pt()>30 && matchedNegEMEl.pt() > 30 && posWElMu2.pdgId() == 24 && topElMu2.pdgId() == 6 && negWElMu2.pdgId() == -24 && antitopElMu2.pdgId() == -6  )
+        {
+            genPosLep.Clear();
+            genNegLep.Clear();
+            W1.Clear();
+            W2.Clear();
+            t1.Clear();
+            t2.Clear();
+            ttbar.Clear();
+            genPosLep.SetPtEtaPhiM(matchedPosEMMu.pt(),matchedPosEMMu.eta(),matchedPosEMMu.phi(),matchedPosEMMu.mass());
+            genNegLep.SetPtEtaPhiM(matchedNegEMEl.pt(),matchedNegEMEl.eta(),matchedNegEMEl.phi(),matchedNegEMEl.mass());
+
+            W1.SetPtEtaPhiM(posWElMu2.pt(),posWElMu2.eta(),posWElMu2.phi(),posWElMu2.mass());
+            W2.SetPtEtaPhiM(negWElMu2.pt(),negWElMu2.eta(),negWElMu2.phi(),negWElMu2.mass());
+
+            t1.SetPtEtaPhiM(topElMu2.pt(),topElMu2.eta(),topElMu2.phi(),topElMu2.mass());
+            t2.SetPtEtaPhiM(antitopElMu2.pt(),antitopElMu2.eta(),antitopElMu2.phi(),antitopElMu2.mass());
+
+            ttbar = t1 + t2;
+            h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            TruthMTT.push_back(ttbar.M());
+
+
+            genPosLep.Boost(-W1.BoostVector());
+            W1.Boost(-t1.BoostVector());
+            float theta1 = (W1.Angle(genPosLep.Vect()));
+            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            TruthCos.push_back(TMath::Cos(theta1));
+
+            genNegLep.Boost(-W2.BoostVector());
+            W2.Boost(-t2.BoostVector());
+            float theta2 = (W2.Angle(genNegLep.Vect()));
+            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
+            h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+            TruthCos.push_back(TMath::Cos(theta2));
+
+        }
+
+
+
+    }
+
+    if(!isData && false){
+        TLorentzVector genPosLep;
+        TLorentzVector genNegLep;
+        //    TLorentzVector genT;
+        //    TLorentzVector genTbar;
+        TLorentzVector genNu;
+        TLorentzVector genNubar;
+        TLorentzVector genB;
+        TLorentzVector genBbar;
+        TLorentzVector W1;
+        TLorentzVector W2;
+        TLorentzVector t1;
+        TLorentzVector t2;
+        TLorentzVector ttbar;
+
+        TLorentzVector dilepton;
+        //    TLorentzVector genWplus;
+        //    TLorentzVector genWminus;
+        if ( genEvent->isFullLeptonic(true) ){
+            genPosLep.SetPtEtaPhiM(genEvent->lepton(true)->pt(),genEvent->lepton(true)->eta(),genEvent->lepton(true)->phi(),genEvent->lepton(true)->mass());
+            genNegLep.SetPtEtaPhiM(genEvent->leptonBar(true)->pt(),genEvent->leptonBar(true)->eta(),genEvent->leptonBar(true)->phi(),genEvent->leptonBar(true)->mass());
+            //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
+            //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
+            genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
+            genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
+            genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
+            genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
+            //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
+            //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
+
+            //                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
+            //                dilepton = genPosLep + genNegLep;
+            //                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+            //                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
+            //                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+            //                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            //                        TLorentzVector nu;
+            //                        TLorentzVector nuBar;
+            //                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            //                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            //                        W1 = nu + genPosLep;
+            //                        W2 = nuBar + genNegLep;
+
+
+            //                        t1 = W1 + genB;
+            //                        t2 = W2 + genBbar;
+            //                        ttbar = t1 + t2;
+            //                        h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            //                        TruthMTT.push_back(ttbar.M());
+
+
+
+
+            //                        genPosLep.Boost(-W1.BoostVector());
+            //                        W1.Boost(-t1.BoostVector());
+            //                        float theta1 = (W1.Angle(genPosLep.Vect()));
+            //                        TruthCos.push_back(TMath::Cos(theta1));
+            //                        h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            //                        genNegLep.Boost(-W2.BoostVector());
+            //                        W2.Boost(-t2.BoostVector());
+            //                        float theta2 = (W2.Angle(genNegLep.Vect()));
+            //                        TruthCos.push_back(TMath::Cos(theta2));
+
+            //                        h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+
+
+            //                    }
+
+            //                }
+            //                dilepton = genPosLep + genNegLep;
+            //                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+            //                    W1 = genPosLep + genNu;
+            //                    W2 = genNegLep +genNubar;
+            //                    t1 = W1 + genB;
+            //                    t2 = W2 + genBbar;
+            //                    ttbar = t1 + t2;
+            //                    h_GenTTbarM->Fill(ttbar.M(),theWeight);
+            //                    TruthMTT.push_back(ttbar.M());
+
+
+
+
+            //                    genPosLep.Boost(-W1.BoostVector());
+            //                    W1.Boost(-t1.BoostVector());
+            //                    float theta1 = (W1.Angle(genPosLep.Vect()));
+            //                    TruthCos.push_back(TMath::Cos(theta1));
+            //                    h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+            //                    genNegLep.Boost(-W2.BoostVector());
+            //                    W2.Boost(-t2.BoostVector());
+            //                    float theta2 = (W2.Angle(genNegLep.Vect()));
+            //                    TruthCos.push_back(TMath::Cos(theta2));
+
+            //                    h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+            //                }
+
+        }
+        ////gen mu mu
+        if ( genEvent->numberOfLeptons(WDecay::kMuon,true) >= 2  ){
+            genPosLep.SetPtEtaPhiM(genEvent->muPlus()->pt(),genEvent->muPlus()->eta(),genEvent->muPlus()->phi(),genEvent->muPlus()->mass());
+            genNegLep.SetPtEtaPhiM(genEvent->muMinus()->pt(),genEvent->muMinus()->eta(),genEvent->muMinus()->phi(),genEvent->muMinus()->mass());
+            //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
+            //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
+            genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
+            genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
+            genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
+            genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
+            //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
+            //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
+            //                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
+            //                dilepton = genPosLep + genNegLep;
+            //                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+            //                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
+            //                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+            //                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            //                        TLorentzVector nu;
+            //                        TLorentzVector nuBar;
+            //                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            //                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            //                        W1 = nu + genPosLep;
+            //                        W2 = nuBar + genNegLep;
+
+
+            //                        t1 = W1 + genB;
+            //                        t2 = W2 + genBbar;
+            //                        ttbar = t1 + t2;
+            //                        //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            //                        genPosLep.Boost(-W1.BoostVector());
+            //                        W1.Boost(-t1.BoostVector());
+            //                        float theta1 = (W1.Angle(genPosLep.Vect()));
+            //                        h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
+            //                        genNegLep.Boost(-W2.BoostVector());
+            //                        W2.Boost(-t2.BoostVector());
+            //                        float theta2 = (W2.Angle(genNegLep.Vect()));
+            //                        h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
+
+
+            //                    }
+
+            //                }
+            dilepton = genPosLep + genNegLep;
+            if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+                W1 = genPosLep + genNu;
+                W2 = genNegLep +genNubar;
+                t1 = W1 + genB;
+                t2 = W2 + genBbar;
+                ttbar = t1 + t2;
+                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+                TruthMTT.push_back(ttbar.M());
+
+
+                genPosLep.Boost(-W1.BoostVector());
+                W1.Boost(-t1.BoostVector());
+                float theta1 = (W1.Angle(genPosLep.Vect()));
+                h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
+                h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+                TruthCos.push_back(TMath::Cos(theta1));
+
+                genNegLep.Boost(-W2.BoostVector());
+                W2.Boost(-t2.BoostVector());
+                float theta2 = (W2.Angle(genNegLep.Vect()));
+                h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
+                h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+                TruthCos.push_back(TMath::Cos(theta2));
             }
-            ////gen mu mu
-            if ( genEvent->numberOfLeptons(WDecay::kMuon,true) >= 2  ){
-                genPosLep.SetPtEtaPhiM(genEvent->muPlus()->pt(),genEvent->muPlus()->eta(),genEvent->muPlus()->phi(),genEvent->muPlus()->mass());
+        }
+        ////gen electron electron
+        if ( genEvent->numberOfLeptons(WDecay::kElec,true) >= 2 ){
+            genPosLep.SetPtEtaPhiM(genEvent->ePlus()->pt(),genEvent->ePlus()->eta(),genEvent->ePlus()->phi(),genEvent->ePlus()->mass());
+            genNegLep.SetPtEtaPhiM(genEvent->eMinus()->pt(),genEvent->eMinus()->eta(),genEvent->eMinus()->phi(),genEvent->eMinus()->mass());
+            //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
+            //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
+            genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
+            genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
+            genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
+            genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
+            //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
+            //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
+            //                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
+            //                dilepton = genPosLep + genNegLep;
+            //                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+            //                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
+            //                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+            //                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+            //                        TLorentzVector nu;
+            //                        TLorentzVector nuBar;
+            //                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+            //                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+            //                        W1 = nu + genPosLep;
+            //                        W2 = nuBar + genNegLep;
+
+
+            //                        t1 = W1 + genB;
+            //                        t2 = W2 + genBbar;
+            //                        ttbar = t1 + t2;
+            //                        //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+
+
+
+
+
+            //                        genPosLep.Boost(-W1.BoostVector());
+            //                        W1.Boost(-t1.BoostVector());
+            //                        float theta1 = (W1.Angle(genPosLep.Vect()));
+            //                        h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
+            //                        genNegLep.Boost(-W2.BoostVector());
+            //                        W2.Boost(-t2.BoostVector());
+            //                        float theta2 = (W2.Angle(genNegLep.Vect()));
+            //                        h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
+
+
+            //                    }
+
+            //                }
+            dilepton = genPosLep + genNegLep;
+            if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+                W1 = genPosLep + genNu;
+                W2 = genNegLep +genNubar;
+                t1 = W1 + genB;
+                t2 = W2 + genBbar;
+                ttbar = t1 + t2;
+                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+                TruthMTT.push_back(ttbar.M());
+
+
+                genPosLep.Boost(-W1.BoostVector());
+                W1.Boost(-t1.BoostVector());
+                float theta1 = (W1.Angle(genPosLep.Vect()));
+                h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
+                h_cosGen->Fill(TMath::Cos(theta1),theWeight);
+                TruthCos.push_back(TMath::Cos(theta1));
+
+                genNegLep.Boost(-W2.BoostVector());
+                W2.Boost(-t2.BoostVector());
+                float theta2 = (W2.Angle(genNegLep.Vect()));
+                h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
+                h_cosGen->Fill(TMath::Cos(theta2),theWeight);
+                TruthCos.push_back(TMath::Cos(theta2));
+            }
+        }
+        ///gen electron muon
+        if ( genEvent->numberOfLeptons(WDecay::kElec,true) >= 1 && genEvent->numberOfLeptons(WDecay::kMuon,true) >= 1){
+            if( genEvent->ePlus() != nullptr && genEvent->muMinus() != nullptr){
+                genPosLep.SetPtEtaPhiM(genEvent->ePlus()->pt(),genEvent->ePlus()->eta(),genEvent->ePlus()->phi(),genEvent->ePlus()->mass());
                 genNegLep.SetPtEtaPhiM(genEvent->muMinus()->pt(),genEvent->muMinus()->eta(),genEvent->muMinus()->phi(),genEvent->muMinus()->mass());
                 //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
                 //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
@@ -994,42 +1359,42 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
                 //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
                 //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
-//                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
-//                dilepton = genPosLep + genNegLep;
-//                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-//                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
-//                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
-//                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
-//                        TLorentzVector nu;
-//                        TLorentzVector nuBar;
-//                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
-//                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
-//                        W1 = nu + genPosLep;
-//                        W2 = nuBar + genNegLep;
+                //                    amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
+                //                    dilepton = genPosLep + genNegLep;
+                //                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+                //                        TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
+                //                        // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+                //                        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+                //                            TLorentzVector nu;
+                //                            TLorentzVector nuBar;
+                //                            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+                //                            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+                //                            W1 = nu + genPosLep;
+                //                            W2 = nuBar + genNegLep;
 
 
-//                        t1 = W1 + genB;
-//                        t2 = W2 + genBbar;
-//                        ttbar = t1 + t2;
-//                        //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+                //                            t1 = W1 + genB;
+                //                            t2 = W2 + genBbar;
+                //                            ttbar = t1 + t2;
+                //                            //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
 
 
 
 
 
-//                        genPosLep.Boost(-W1.BoostVector());
-//                        W1.Boost(-t1.BoostVector());
-//                        float theta1 = (W1.Angle(genPosLep.Vect()));
-//                        h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
-//                        genNegLep.Boost(-W2.BoostVector());
-//                        W2.Boost(-t2.BoostVector());
-//                        float theta2 = (W2.Angle(genNegLep.Vect()));
-//                        h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
+                //                            genPosLep.Boost(-W1.BoostVector());
+                //                            W1.Boost(-t1.BoostVector());
+                //                            float theta1 = (W1.Angle(genPosLep.Vect()));
+                //                            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
+                //                            genNegLep.Boost(-W2.BoostVector());
+                //                            W2.Boost(-t2.BoostVector());
+                //                            float theta2 = (W2.Angle(genNegLep.Vect()));
+                //                            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
 
 
-//                    }
+                //                        }
 
-//                }
+                //                    }
                 dilepton = genPosLep + genNegLep;
                 if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
                     W1 = genPosLep + genNu;
@@ -1044,21 +1409,21 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                     genPosLep.Boost(-W1.BoostVector());
                     W1.Boost(-t1.BoostVector());
                     float theta1 = (W1.Angle(genPosLep.Vect()));
-                    h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
+                    h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
                     h_cosGen->Fill(TMath::Cos(theta1),theWeight);
                     TruthCos.push_back(TMath::Cos(theta1));
 
                     genNegLep.Boost(-W2.BoostVector());
                     W2.Boost(-t2.BoostVector());
                     float theta2 = (W2.Angle(genNegLep.Vect()));
-                    h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
+                    h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
                     h_cosGen->Fill(TMath::Cos(theta2),theWeight);
                     TruthCos.push_back(TMath::Cos(theta2));
                 }
             }
-            ////gen electron electron
-            if ( genEvent->numberOfLeptons(WDecay::kElec,true) >= 2 ){
-                genPosLep.SetPtEtaPhiM(genEvent->ePlus()->pt(),genEvent->ePlus()->eta(),genEvent->ePlus()->phi(),genEvent->ePlus()->mass());
+            else if( genEvent->eMinus() != nullptr && genEvent->muPlus() != nullptr)
+            {
+                genPosLep.SetPtEtaPhiM(genEvent->muPlus()->pt(),genEvent->muPlus()->eta(),genEvent->muPlus()->phi(),genEvent->muPlus()->mass());
                 genNegLep.SetPtEtaPhiM(genEvent->eMinus()->pt(),genEvent->eMinus()->eta(),genEvent->eMinus()->phi(),genEvent->eMinus()->mass());
                 //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
                 //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
@@ -1068,42 +1433,42 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                 genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
                 //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
                 //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
-//                amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
-//                dilepton = genPosLep + genNegLep;
-//                if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-//                    TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
-//                    // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
-//                    if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
-//                        TLorentzVector nu;
-//                        TLorentzVector nuBar;
-//                        nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
-//                        nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
-//                        W1 = nu + genPosLep;
-//                        W2 = nuBar + genNegLep;
+                //                    amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
+                //                    dilepton = genPosLep + genNegLep;
+                //                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
+                //                        TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
+                //                        // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+                //                        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
+                //                            TLorentzVector nu;
+                //                            TLorentzVector nuBar;
+                //                            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
+                //                            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
+                //                            W1 = nu + genPosLep;
+                //                            W2 = nuBar + genNegLep;
 
 
-//                        t1 = W1 + genB;
-//                        t2 = W2 + genBbar;
-//                        ttbar = t1 + t2;
-//                        //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
+                //                            t1 = W1 + genB;
+                //                            t2 = W2 + genBbar;
+                //                            ttbar = t1 + t2;
+                //                            //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
 
 
 
 
 
-//                        genPosLep.Boost(-W1.BoostVector());
-//                        W1.Boost(-t1.BoostVector());
-//                        float theta1 = (W1.Angle(genPosLep.Vect()));
-//                        h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
-//                        genNegLep.Boost(-W2.BoostVector());
-//                        W2.Boost(-t2.BoostVector());
-//                        float theta2 = (W2.Angle(genNegLep.Vect()));
-//                        h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
+                //                            genPosLep.Boost(-W1.BoostVector());
+                //                            W1.Boost(-t1.BoostVector());
+                //                            float theta1 = (W1.Angle(genPosLep.Vect()));
+                //                            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
+                //                            genNegLep.Boost(-W2.BoostVector());
+                //                            W2.Boost(-t2.BoostVector());
+                //                            float theta2 = (W2.Angle(genNegLep.Vect()));
+                //                            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
 
 
-//                    }
+                //                        }
 
-//                }
+                //                    }
                 dilepton = genPosLep + genNegLep;
                 if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
                     W1 = genPosLep + genNu;
@@ -1118,170 +1483,21 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
                     genPosLep.Boost(-W1.BoostVector());
                     W1.Boost(-t1.BoostVector());
                     float theta1 = (W1.Angle(genPosLep.Vect()));
-                    h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
+                    h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
                     h_cosGen->Fill(TMath::Cos(theta1),theWeight);
                     TruthCos.push_back(TMath::Cos(theta1));
 
                     genNegLep.Boost(-W2.BoostVector());
                     W2.Boost(-t2.BoostVector());
                     float theta2 = (W2.Angle(genNegLep.Vect()));
-                    h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
+                    h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
                     h_cosGen->Fill(TMath::Cos(theta2),theWeight);
                     TruthCos.push_back(TMath::Cos(theta2));
                 }
             }
-            ///gen electron muon
-            if ( genEvent->numberOfLeptons(WDecay::kElec,true) >= 1 && genEvent->numberOfLeptons(WDecay::kMuon,true) >= 1){
-                if( genEvent->ePlus() != nullptr && genEvent->muMinus() != nullptr){
-                    genPosLep.SetPtEtaPhiM(genEvent->ePlus()->pt(),genEvent->ePlus()->eta(),genEvent->ePlus()->phi(),genEvent->ePlus()->mass());
-                    genNegLep.SetPtEtaPhiM(genEvent->muMinus()->pt(),genEvent->muMinus()->eta(),genEvent->muMinus()->phi(),genEvent->muMinus()->mass());
-                    //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
-                    //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
-                    genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
-                    genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
-                    genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
-                    genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
-                    //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
-                    //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
-//                    amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
-//                    dilepton = genPosLep + genNegLep;
-//                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-//                        TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
-//                        // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
-//                        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
-//                            TLorentzVector nu;
-//                            TLorentzVector nuBar;
-//                            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
-//                            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
-//                            W1 = nu + genPosLep;
-//                            W2 = nuBar + genNegLep;
 
-
-//                            t1 = W1 + genB;
-//                            t2 = W2 + genBbar;
-//                            ttbar = t1 + t2;
-//                            //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
-
-
-
-
-
-//                            genPosLep.Boost(-W1.BoostVector());
-//                            W1.Boost(-t1.BoostVector());
-//                            float theta1 = (W1.Angle(genPosLep.Vect()));
-//                            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
-//                            genNegLep.Boost(-W2.BoostVector());
-//                            W2.Boost(-t2.BoostVector());
-//                            float theta2 = (W2.Angle(genNegLep.Vect()));
-//                            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
-
-
-//                        }
-
-//                    }
-                    dilepton = genPosLep + genNegLep;
-                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-                        W1 = genPosLep + genNu;
-                        W2 = genNegLep +genNubar;
-                        t1 = W1 + genB;
-                        t2 = W2 + genBbar;
-                        ttbar = t1 + t2;
-                        h_GenTTbarM->Fill(ttbar.M(),theWeight);
-                        TruthMTT.push_back(ttbar.M());
-
-
-                        genPosLep.Boost(-W1.BoostVector());
-                        W1.Boost(-t1.BoostVector());
-                        float theta1 = (W1.Angle(genPosLep.Vect()));
-                        h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
-                        h_cosGen->Fill(TMath::Cos(theta1),theWeight);
-                        TruthCos.push_back(TMath::Cos(theta1));
-
-                        genNegLep.Boost(-W2.BoostVector());
-                        W2.Boost(-t2.BoostVector());
-                        float theta2 = (W2.Angle(genNegLep.Vect()));
-                        h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
-                        h_cosGen->Fill(TMath::Cos(theta2),theWeight);
-                        TruthCos.push_back(TMath::Cos(theta2));
-                    }
-                }
-                else if( genEvent->eMinus() != nullptr && genEvent->muPlus() != nullptr)
-                {
-                    genPosLep.SetPtEtaPhiM(genEvent->muPlus()->pt(),genEvent->muPlus()->eta(),genEvent->muPlus()->phi(),genEvent->muPlus()->mass());
-                    genNegLep.SetPtEtaPhiM(genEvent->eMinus()->pt(),genEvent->eMinus()->eta(),genEvent->eMinus()->phi(),genEvent->eMinus()->mass());
-                    //        genT.SetPtEtaPhiM(genEvent->top(true)->pt(),genEvent->top()->eta(),genEvent->top()->phi(),genEvent->top()->mass());
-                    //        genTbar.SetPtEtaPhiM(genEvent->topBar()->pt(),genEvent->topBar()->eta(),genEvent->topBar()->phi(),genEvent->topBar()->mass());
-                    genNu.SetPtEtaPhiM(genEvent->neutrino(true)->pt(),genEvent->neutrino(true)->eta(),genEvent->neutrino(true)->phi(),genEvent->neutrino(true)->mass());
-                    genNubar.SetPtEtaPhiM(genEvent->neutrinoBar(true)->pt(),genEvent->neutrinoBar(true)->eta(),genEvent->neutrinoBar(true)->phi(),genEvent->neutrinoBar(true)->mass());
-                    genB.SetPtEtaPhiM(genEvent->b()->pt(),genEvent->b()->eta(),genEvent->b()->phi(),genEvent->b()->mass());
-                    genBbar.SetPtEtaPhiM(genEvent->bBar()->pt(),genEvent->bBar()->eta(),genEvent->bBar()->phi(),genEvent->bBar()->mass());
-                    //        genWplus.SetPtEtaPhiM(genEvent->wPlus()->pt(),genEvent->wPlus()->eta(),genEvent->wPlus()->phi(),genEvent->wPlus()->mass());
-                    //        genWminus.SetPtEtaPhiM(genEvent->wMinus()->pt(),genEvent->wMinus()->eta(),genEvent->wMinus()->phi(),genEvent->wMinus()->mass());
-//                    amwtSolver->SetConstraints(genNu.Px()+genNubar.Px(),genNu.Py()+genNubar.Py());
-//                    dilepton = genPosLep + genNegLep;
-//                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-//                        TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(genPosLep,genNegLep,genB,genBbar);
-//                        // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
-//                        if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0){
-//                            TLorentzVector nu;
-//                            TLorentzVector nuBar;
-//                            nu.SetPtEtaPhiM(nuSol.neutrino.pt(),nuSol.neutrino.eta(),nuSol.neutrino.phi(),nuSol.neutrino.mass());
-//                            nuBar.SetPtEtaPhiM(nuSol.neutrinoBar.pt(),nuSol.neutrinoBar.eta(),nuSol.neutrinoBar.phi(),nuSol.neutrinoBar.mass());
-//                            W1 = nu + genPosLep;
-//                            W2 = nuBar + genNegLep;
-
-
-//                            t1 = W1 + genB;
-//                            t2 = W2 + genBbar;
-//                            ttbar = t1 + t2;
-//                            //                h_GenTTbarM->Fill(ttbar.M(),theWeight);
-
-
-
-
-
-//                            genPosLep.Boost(-W1.BoostVector());
-//                            W1.Boost(-t1.BoostVector());
-//                            float theta1 = (W1.Angle(genPosLep.Vect()));
-//                            h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
-//                            genNegLep.Boost(-W2.BoostVector());
-//                            W2.Boost(-t2.BoostVector());
-//                            float theta2 = (W2.Angle(genNegLep.Vect()));
-//                            h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
-
-
-//                        }
-
-//                    }
-                    dilepton = genPosLep + genNegLep;
-                    if( genPosLep.Pt() > 20 && genNegLep.Pt() > 20 && genB.Pt() > 30 && genBbar.Pt() > 30 && genNu.Pt() > 0.1 && genNubar.Pt() > 0.1 && !(dilepton.M() < 106 || dilepton.M() < 76) ){
-                        W1 = genPosLep + genNu;
-                        W2 = genNegLep +genNubar;
-                        t1 = W1 + genB;
-                        t2 = W2 + genBbar;
-                        ttbar = t1 + t2;
-                        h_GenTTbarM->Fill(ttbar.M(),theWeight);
-                        TruthMTT.push_back(ttbar.M());
-
-
-                        genPosLep.Boost(-W1.BoostVector());
-                        W1.Boost(-t1.BoostVector());
-                        float theta1 = (W1.Angle(genPosLep.Vect()));
-                        h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
-                        h_cosGen->Fill(TMath::Cos(theta1),theWeight);
-                        TruthCos.push_back(TMath::Cos(theta1));
-
-                        genNegLep.Boost(-W2.BoostVector());
-                        W2.Boost(-t2.BoostVector());
-                        float theta2 = (W2.Angle(genNegLep.Vect()));
-                        h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
-                        h_cosGen->Fill(TMath::Cos(theta2),theWeight);
-                        TruthCos.push_back(TMath::Cos(theta2));
-                    }
-                }
-
-            }
         }
+    }
     //////////////////////TOP RECO/////////////////
     //    TtDilepEvtSolution asol;
 
@@ -1304,13 +1520,13 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         lepNeg.SetPtEtaPhiE(negMu.pt(),negMu.eta(),negMu.phi(),negMu.energy());
         BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
         BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
-
+        //        cout << posMu.genParticle()->mother()->pdgId() << endl;
 
         amwtSolver->SetConstraints(met.px(),met.py());
 
 
         TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
-        amwtSolver->getHistos(h_ptsm,h_etasm);
+
         // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
         dilepton = lepPos + lepNeg;
         if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0 && !(dilepton.M() < 106 || dilepton.M() < 76)){
@@ -1346,7 +1562,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_mTTbarMuMu->Fill(ttbar.M(),theWeight);
             h_TTbarM->Fill(ttbar.M(),theWeight);
 
-
+            ++n_afterTop;
             RecoMTT.push_back(ttbar.M());
 
 
@@ -1365,10 +1581,17 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
             h_cosMuMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta2),theWeight);
+            //            vector<double> jetESF;
+            //            amwtSolver->getSmearVariables(jetESF);
+            //            for(uint i=0;i < jetESF.size();i++){
+            //                h_jet_energy_scale_factor->Fill(jetESF[i],theWeight);
+            //            }
 
         }
         h_NBJetsMuMu->Fill(bjets.size(),theWeight);
         h_NBJetsDiLep->Fill(bjets.size(),theWeight);
+
+
     }
 
 
@@ -1435,7 +1658,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_ptTDiLep->Fill(t2.Pt(),theWeight);
             h_mTTbarElEl->Fill(ttbar.M(),theWeight);
             h_TTbarM->Fill(ttbar.M(),theWeight);
-
+            ++n_afterTop;
             RecoMTT.push_back(ttbar.M());
 
 
@@ -1525,7 +1748,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_mTTbarElMu->Fill(ttbar.M(),theWeight);
             h_TTbarM->Fill(ttbar.M(),theWeight);
 
-
+            ++n_afterTop;
             RecoMTT.push_back(ttbar.M());
 
 
@@ -1607,7 +1830,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_mTTbarElMu->Fill(ttbar.M(),theWeight);
             h_TTbarM->Fill(ttbar.M(),theWeight);
 
-
+            ++n_afterTop;
             RecoMTT.push_back(ttbar.M());
 
 
@@ -1846,8 +2069,7 @@ void MiniAnalyzer::beginJob() {
     h_AMS_METElEl = fs->make<TH1F>("h_AMS_METElEl",";MET;",100,0.,300.);
     h_AMS_METElMu = fs->make<TH1F>("h_AMS_METElMu",";MET;",100,0.,300.);
     h_AMS_METDiLep = fs->make<TH1F>("h_AMS_METDiLep",";MET;",100,0.,300.);
-    h_ptsm = fs->make<TH1F>("h_ptsm","",100,0,300);
-    h_etasm = fs->make<TH1F>("h_etasm","",100,-3,3);
+
 
     //initialize the tree
     f_outFile->cd();
@@ -1859,13 +2081,26 @@ void MiniAnalyzer::beginJob() {
     t_outTree->Branch("TruthCos",&TruthCos);
     t_outTree->Branch("TruthMTT",&TruthMTT);
     t_outTree->Branch("RecoMTT",&RecoMTT);
+    t_outTree->Branch("EvantsAfterVert",&n_afterVertex,"EvantsAfterVert/I");
+    t_outTree->Branch("EvantsAfterHLT",&n_afterHLT,"EvantsAfterHLT/I");
+    t_outTree->Branch("EvantsAfterDiLep",&n_afterDiLepton,"EvantsAfterDiLep/I");
+    t_outTree->Branch("EvantsAfterDiMu",&n_afterDiMu,"EvantsAfterDiMu/I");
+    t_outTree->Branch("EvantsAfterDiEl",&n_afterDiEl,"EvantsAfterDiEl/I");
+    t_outTree->Branch("EvantsAfterElMu",&n_afterElMu,"EvantsAfterElMu/I");
+    t_outTree->Branch("EvantsAfter2Jets",&n_after2Jets,"EvantsAfter2Jets/I");
+    t_outTree->Branch("EvantsAfter2BJets",&n_after2BJets,"EvantsAfter2BJets/I");
+    t_outTree->Branch("EvantsAfterMet",&n_afterMet,"EvantsAfterMet/I");
+    t_outTree->Branch("EvantsAfterTop",&n_afterTop,"EvantsAfterTop/I");
+
 
 
 }
 void MiniAnalyzer::endJob() {
     f_outFile->cd();
+
     t_outTree->Write();
     f_outFile->Close();
+    amwtSolver->writeOut();
 }
 
 

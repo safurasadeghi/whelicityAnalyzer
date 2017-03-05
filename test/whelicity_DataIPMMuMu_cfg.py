@@ -1873,8 +1873,9 @@ secFiles.extend( [
 #process.decaySubset.runMode = "Run2"
 process.load("whelicity1.MiniAnalyzer.whelicity_cff")
 process.Whelicity.isData = cms.bool(True)
+process.Whelicity.outFileName = cms.string("DataTree.root")
 process.TFileService = cms.Service("TFileService",
- fileName = cms.string("MuMuDataHistos.root")
+ fileName = cms.string("RunB.root")
 )
 
 

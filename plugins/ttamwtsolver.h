@@ -12,6 +12,7 @@
 #include <time.h>
 #include <TRandom3.h>
 #include <TH1.h>
+#include <TH2.h>
 #include <TFile.h>
 #include "TLorentzVector.h"
 #include "TMath.h"
@@ -106,6 +107,10 @@ private:
     TH1F *h_etasm;
     TH1F *h_phism;
     TH1F *h_SmearF;
+    TH1F *h_SmearFPhi;
+    TH1F *h_SmearFEta;
+    TH2F *h_Met;
+    TH1F *h_topMass;
     ///
     TLorentzVector LV_n, LV_n_, LV_t, LV_t_, LV_tt_t, LV_tt_t_;
     /// provisional

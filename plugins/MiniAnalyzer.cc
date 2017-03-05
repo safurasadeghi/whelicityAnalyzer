@@ -216,7 +216,7 @@ private:
     TH1F* h_yWDiLep;
     TH1F* h_PtMu;
     TH1F* h_etaMu;
-
+    TH2F* h_truthRecoMuMu;
 
     double coriso= 999; // initialise to dummy value
     double coriso2= 999; // initialise to dummy value
@@ -225,7 +225,7 @@ private:
 
 
 
-    //    TtFullLepKinSolver* solver;
+    //    TtFullLepKinSolver* amwtsolver;
     TtAMWTSolver* amwtSolver;
     EffectiveAreas effectiveAreas_;
     edm::EDGetTokenT<TtGenEvent> ttgenEvt_;
@@ -241,8 +241,12 @@ private:
     TTree* t_outTree;
     vector<Double_t> RecoCos;
     vector<Double_t> TruthCos;
+    vector<Double_t> RecoCosMuMu;
+    vector<Double_t> TruthCosMuMu;
     vector<Double_t> RecoMTT;
     vector<Double_t> TruthMTT;
+    vector<Double_t> TruthMTTMuMu;
+    vector<Double_t> RecoMTTMuMu;
     int nGoodVtxs = 0;
 
     edm::EDGetTokenT<edm::TriggerResults> triggerResluts_;
@@ -291,10 +295,14 @@ MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
     triggerResluts_(mayConsume<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults")))
 {
     // initializing the solver
-    amwtSolver = new TtAMWTSolver(isData,171.5,173.5,100,80.4,4.8,ptRes,phiRes,sfRes);
+    amwtSolver = new TtAMWTSolver(isData,172.4,172.6,0.1,80.4,4.8,ptRes,phiRes,sfRes);
+
+    //    std::vector<double> nupars= {30.7137,56.2880,23.0744,59.1015,24.9145};
+    //    amwtsolver = new TtFullLepKinSolver(172.5,172.5,10,nupars,80.4,4.8);
 
     // Initializing  output root file;
     f_outFile = TFile::Open(outfileName.c_str(),"RECREATE");
+    // cout << outfileName.c_str() << endl;
 
 
 }
@@ -340,6 +348,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         genColl = *packed;
 
     }
+    
     edm::Handle<double> rhoHandle_;
     iEvent.getByToken( rho_,rhoHandle_);
     float rho = *rhoHandle_;
@@ -362,27 +371,30 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
     iEvent.getByToken(triggerResluts_,trigResults);
     const edm::TriggerNames& trigNames = iEvent.triggerNames(*trigResults);
+    
+
     std::string Mu1,Mu2,ElEl1,ElEl2,ElMu1,ElMu2,ElMu3,ElMu4,MuEl1,MuEl2;
     if(isData){
         // Double Muon  36.811 fb^-1 Mu1 or Mu2
-        Mu1="HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_v*";
-        Mu2="HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ_v*";
+        Mu1="HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_v";
+        Mu2="HLT_Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ_v";
 
         // Double Electron 36.615 fb^-1
-        ElEl1="HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v*";
+        ElEl1="HLT_DoubleEle24_22_eta2p1_WPLoose_Gsf_v";
 
         // Double Electron 36.811 fb^-1
-        ElEl2="HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v*";
+        ElEl2="HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v";
 
         // MuEl 36.811 fb^-1 MuEl1 OR MuEl2
-        MuEl1="HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v*";
-        MuEl2="HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v*";
+        MuEl1="HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_v";
+        MuEl2="HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ_v";
 
         // El Mu  36.810 ELMu1 OR ElMu2 OR ElMu3
-        ElMu1="HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*";
-        ElMu2="HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ_v*";
-        ElMu3="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v*";
-        ElMu4="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ_v*";
+        ElMu1="HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v";
+        ElMu2="HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ_v";
+        ElMu3="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v";
+        ElMu4="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ_v";
+        //cout << "safe here" << endl;
     }
     else{
         Mu1="HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_v7";
@@ -399,23 +411,86 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         ElMu2="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v3";
         ElMu3="HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ_v4";
         ElMu4="HLT_Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_v9";
+        // cout << "why here" << endl;
+
 
     }
-    bool b_Mu1=trigResults->accept(trigNames.triggerIndex(Mu1));
-    bool b_Mu2=trigResults->accept(trigNames.triggerIndex(Mu2));
+    bool b_Mu1=0,b_Mu2=0,b_ElEl1=0,b_ElEl2=0,b_MuEl1=0,b_MuEl2=0,b_ElMu1=0,b_ElMu2=0,b_ElMu3=0,b_ElMu4=0;
+    for (unsigned int i = 0, n = trigResults->size(); i < n; ++i) {
+        std::string nameHLT,st;
+        nameHLT = trigNames.triggerName(i);
+        st = nameHLT.substr(0, nameHLT.size()-1);
+        if(st.compare(Mu1) == 0)
+        {
+            b_Mu1 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(Mu2) == 0)
+        {
+            b_Mu2 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(ElEl2) == 0)
+        {
+            b_ElEl2 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(MuEl1) == 0)
+        {
+            b_MuEl1 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(MuEl2) == 0)
+        {
+            b_MuEl2 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(ElMu1) == 0)
+        {
+            b_ElMu1 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(ElMu2) == 0)
+        {
+            b_ElMu2 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(ElMu3) == 0)
+        {
+            b_ElMu3 = trigResults->accept(i);
+            cout << st << endl;
+        }
+        else if(st.compare(ElMu4) == 0)
+        {
+            b_ElMu4 = trigResults->accept(i);
+            cout << st << endl;
+        }
 
-    //    bool b_ElEl1=trigResults->accept(trigNames.triggerIndex(ElEl1));
-    bool b_ElEl2=trigResults->accept(trigNames.triggerIndex(ElEl2));
+        //        std::cout << "Trigger " << trigNames.triggerName(i) << "i: "<<i
 
-    bool b_MuEl1=trigResults->accept(trigNames.triggerIndex(MuEl1));
-    bool b_MuEl2=trigResults->accept(trigNames.triggerIndex(MuEl2));
+        //                  <<": " << (trigResults->accept(i) ? "PASS" : "fail (or not run)")
+        //                 << std::endl;
+    }
 
-    bool b_ElMu1=trigResults->accept(trigNames.triggerIndex(ElMu1));
-    bool b_ElMu2=trigResults->accept(trigNames.triggerIndex(ElMu2));
-    bool b_ElMu3=trigResults->accept(trigNames.triggerIndex(ElMu3));
-    bool b_ElMu4=trigResults->accept(trigNames.triggerIndex(ElMu4));
+    if(!isData){
+        b_Mu1=trigResults->accept(trigNames.triggerIndex(Mu1));
+
+        b_Mu2=trigResults->accept(trigNames.triggerIndex(Mu2));
+
+        //    bool b_ElEl1=trigResults->accept(trigNames.triggerIndex(ElEl1));
+        b_ElEl2=trigResults->accept(trigNames.triggerIndex(ElEl2));
+
+        b_MuEl1=trigResults->accept(trigNames.triggerIndex(MuEl1));
+        b_MuEl2=trigResults->accept(trigNames.triggerIndex(MuEl2));
+
+        b_ElMu1=trigResults->accept(trigNames.triggerIndex(ElMu1));
+        b_ElMu2=trigResults->accept(trigNames.triggerIndex(ElMu2));
+        b_ElMu3=trigResults->accept(trigNames.triggerIndex(ElMu3));
+        b_ElMu4=trigResults->accept(trigNames.triggerIndex(ElMu4));
+    }
 
     //    cout << b_Mu1 << "      "<< b_Mu2 << endl;
+    
     /////////////////////////////////////////////////
     // make sure we have a good vertex //////////////
     /////////////////////////////////////////////////
@@ -914,7 +989,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         const pat::PackedGenParticle matchedNegMu = mse::getMatchedGenParticle(negMu, genColl,13);
         const reco::GenParticle negWMuMu = mse::getMotherPacked(matchedNegMu);
         const reco::GenParticle antitopMuMu = mse::getMother(negWMuMu);
-        if(matchedPosMu.pt()>30 && matchedNegMu.pt() > 30 && posWMuMu.pdgId() == 24 && topMuMu.pdgId() == 6 && negWMuMu.pdgId() == -24 && antitopMuMu.pdgId() == -6  )
+        if(matchedPosMu.pt()> 0 && matchedNegMu.pt() > 0 && posWMuMu.pdgId() == 24 && topMuMu.pdgId() == 6 && negWMuMu.pdgId() == -24 && antitopMuMu.pdgId() == -6  )
         {
             genPosLep.Clear();
             genNegLep.Clear();
@@ -935,22 +1010,26 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             ttbar = t1 + t2;
             h_GenTTbarM->Fill(ttbar.M(),theWeight);
             TruthMTT.push_back(ttbar.M());
-
-
+            TruthMTTMuMu.push_back(ttbar.M());
+            //            cout << W1.T() << " t component " << t1.T() << endl;
             genPosLep.Boost(-W1.BoostVector());
             W1.Boost(-t1.BoostVector());
+            //            cout << W1.T() << "after boost"<< endl;
+
             float theta1 = (W1.Angle(genPosLep.Vect()));
             h_cosGenMuMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosGen->Fill(TMath::Cos(theta1),theWeight);
             TruthCos.push_back(TMath::Cos(theta1));
-
+            //            TruthCos.push_back(theta1);
+            TruthCosMuMu.push_back(TMath::Cos(theta1));
             genNegLep.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(genNegLep.Vect()));
             h_cosGenMuMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosGen->Fill(TMath::Cos(theta2),theWeight);
             TruthCos.push_back(TMath::Cos(theta2));
-
+            //            TruthCos.push_back(theta2);
+            TruthCosMuMu.push_back(TMath::Cos(theta2));
 
 
 
@@ -965,7 +1044,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         const pat::PackedGenParticle matchedNegEl = mse::getMatchedGenParticle(negEl, genColl,11);
         const reco::GenParticle negWElEl = mse::getMotherPacked(matchedNegEl);
         const reco::GenParticle antitopElEl = mse::getMother(negWElEl);
-        if(matchedPosEl.pt()>30 && matchedNegEl.pt() > 30 && posWElEl.pdgId() == 24 && topElEl.pdgId() == 6 && negWElEl.pdgId() == -24 && antitopElEl.pdgId() == -6  )
+        if(matchedPosEl.pt()> 0 && matchedNegEl.pt() > 0 && posWElEl.pdgId() == 24 && topElEl.pdgId() == 6 && negWElEl.pdgId() == -24 && antitopElEl.pdgId() == -6  )
         {
             genPosLep.Clear();
             genNegLep.Clear();
@@ -990,17 +1069,19 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
             genPosLep.Boost(-W1.BoostVector());
             W1.Boost(-t1.BoostVector());
+
             float theta1 = (W1.Angle(genPosLep.Vect()));
             h_cosGenElEl->Fill(TMath::Cos(theta1),theWeight);
             h_cosGen->Fill(TMath::Cos(theta1),theWeight);
             TruthCos.push_back(TMath::Cos(theta1));
-
+            //            TruthCos.push_back(theta1);
             genNegLep.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(genNegLep.Vect()));
             h_cosGenElEl->Fill(TMath::Cos(theta2),theWeight);
             h_cosGen->Fill(TMath::Cos(theta2),theWeight);
             TruthCos.push_back(TMath::Cos(theta2));
+            //            TruthCos.push_back(theta2);
 
         }
 
@@ -1012,7 +1093,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         const pat::PackedGenParticle matchedNegEMMu = mse::getMatchedGenParticle(negMu, genColl,13);
         const reco::GenParticle negWElMu = mse::getMotherPacked(matchedNegEMMu);
         const reco::GenParticle antitopElMu = mse::getMother(negWElMu);
-        if(matchedPosEMEl.pt()>30 && matchedNegEMMu.pt() > 30 && posWElMu.pdgId() == 24 && topElMu.pdgId() == 6 && negWElMu.pdgId() == -24 && antitopElMu.pdgId() == -6  )
+        if(matchedPosEMEl.pt() > 0 && matchedNegEMMu.pt() > 0 && posWElMu.pdgId() == 24 && topElMu.pdgId() == 6 && negWElMu.pdgId() == -24 && antitopElMu.pdgId() == -6  )
         {
             genPosLep.Clear();
             genNegLep.Clear();
@@ -1041,14 +1122,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosGen->Fill(TMath::Cos(theta1),theWeight);
             TruthCos.push_back(TMath::Cos(theta1));
-
+            //            TruthCos.push_back(theta1);
             genNegLep.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(genNegLep.Vect()));
             h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosGen->Fill(TMath::Cos(theta2),theWeight);
             TruthCos.push_back(TMath::Cos(theta2));
-
+            //            TruthCos.push_back(theta2);
         }
 
         const pat::PackedGenParticle matchedPosEMMu = mse::getMatchedGenParticle(posEl, genColl,13);
@@ -1059,7 +1140,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         const pat::PackedGenParticle matchedNegEMEl = mse::getMatchedGenParticle(negMu, genColl,11);
         const reco::GenParticle negWElMu2 = mse::getMotherPacked(matchedNegEMEl);
         const reco::GenParticle antitopElMu2 = mse::getMother(negWElMu2);
-        if(matchedPosEMMu.pt()>30 && matchedNegEMEl.pt() > 30 && posWElMu2.pdgId() == 24 && topElMu2.pdgId() == 6 && negWElMu2.pdgId() == -24 && antitopElMu2.pdgId() == -6  )
+        if(matchedPosEMMu.pt()> 0 && matchedNegEMEl.pt() > 0 && posWElMu2.pdgId() == 24 && topElMu2.pdgId() == 6 && negWElMu2.pdgId() == -24 && antitopElMu2.pdgId() == -6  )
         {
             genPosLep.Clear();
             genNegLep.Clear();
@@ -1088,14 +1169,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             h_cosGenElMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosGen->Fill(TMath::Cos(theta1),theWeight);
             TruthCos.push_back(TMath::Cos(theta1));
-
+            //            TruthCos.push_back(theta1);
             genNegLep.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(genNegLep.Vect()));
             h_cosGenElMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosGen->Fill(TMath::Cos(theta2),theWeight);
             TruthCos.push_back(TMath::Cos(theta2));
-
+            //            TruthCos.push_back(theta2);
         }
 
 
@@ -1522,12 +1603,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
         //        cout << posMu.genParticle()->mother()->pdgId() << endl;
 
-        amwtSolver->SetConstraints(met.px(),met.py());
+                amwtSolver->SetConstraints(met.px(),met.py());
 
+                TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
 
-        TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
-
+//        amwtsolver->SetConstraints(met.px(),met.py());
+//        TtFullLepKinSolver::NeutrinoSolution nuSol= amwtsolver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
         // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
+
         dilepton = lepPos + lepNeg;
         if(nuSol.neutrino.pt()> 0 && nuSol.neutrinoBar.pt() > 0 && !(dilepton.M() < 106 || dilepton.M() < 76)){
             // cout << "what 0" << endl;
@@ -1564,28 +1647,76 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
             ++n_afterTop;
             RecoMTT.push_back(ttbar.M());
-
+            RecoMTTMuMu.push_back(ttbar.M());
 
 
             lepPos.Boost(-W1.BoostVector());
             W1.Boost(-t1.BoostVector());
             float theta1 = (W1.Angle(lepPos.Vect()));
             RecoCos.push_back(TMath::Cos(theta1));
-
+            //            RecoCos.push_back(theta1);
+            RecoCosMuMu.push_back(TMath::Cos(theta1));
             h_cosMuMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta1),theWeight);
             lepNeg.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(lepNeg.Vect()));
             RecoCos.push_back(TMath::Cos(theta2));
-
+            //            RecoCos.push_back(theta2);
+            RecoCosMuMu.push_back(TMath::Cos(theta2));
             h_cosMuMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta2),theWeight);
-            //            vector<double> jetESF;
-            //            amwtSolver->getSmearVariables(jetESF);
-            //            for(uint i=0;i < jetESF.size();i++){
-            //                h_jet_energy_scale_factor->Fill(jetESF[i],theWeight);
-            //            }
+
+            if(!isData){
+                TLorentzVector W1;
+                TLorentzVector W2;
+                TLorentzVector t1;
+                TLorentzVector t2;
+                TLorentzVector ttbar;
+                TLorentzVector genPosLep;
+                TLorentzVector genNegLep;
+                const pat::PackedGenParticle matchedPosMu = mse::getMatchedGenParticle(posMu, genColl,13);
+
+                const reco::GenParticle posWMuMu = mse::getMotherPacked(matchedPosMu);
+                const reco::GenParticle topMuMu = mse::getMother(posWMuMu);
+                if(matchedPosMu.pt() != 0 )  cout << matchedPosMu.pt() << "muon match mother"<< posWMuMu.pdgId()<<"topMuMu Mother pdgId"<< topMuMu.pdgId() << endl;
+                const pat::PackedGenParticle matchedNegMu = mse::getMatchedGenParticle(negMu, genColl,13);
+                const reco::GenParticle negWMuMu = mse::getMotherPacked(matchedNegMu);
+                const reco::GenParticle antitopMuMu = mse::getMother(negWMuMu);
+                if(matchedPosMu.pt()> 0 && matchedNegMu.pt() > 0 && posWMuMu.pdgId() == 24 && topMuMu.pdgId() == 6 && negWMuMu.pdgId() == -24 && antitopMuMu.pdgId() == -6  )
+                {
+                    genPosLep.Clear();
+                    genNegLep.Clear();
+                    W1.Clear();
+                    W2.Clear();
+                    t1.Clear();
+                    t2.Clear();
+                    ttbar.Clear();
+                    genPosLep.SetPtEtaPhiM(matchedPosMu.pt(),matchedPosMu.eta(),matchedPosMu.phi(),matchedPosMu.mass());
+                    genNegLep.SetPtEtaPhiM(matchedNegMu.pt(),matchedNegMu.eta(),matchedNegMu.phi(),matchedNegMu.mass());
+
+                    W1.SetPtEtaPhiM(posWMuMu.pt(),posWMuMu.eta(),posWMuMu.phi(),posWMuMu.mass());
+                    W2.SetPtEtaPhiM(negWMuMu.pt(),negWMuMu.eta(),negWMuMu.phi(),negWMuMu.mass());
+
+                    t1.SetPtEtaPhiM(topMuMu.pt(),topMuMu.eta(),topMuMu.phi(),topMuMu.mass());
+                    t2.SetPtEtaPhiM(antitopMuMu.pt(),antitopMuMu.eta(),antitopMuMu.phi(),antitopMuMu.mass());
+
+                    ttbar = t1 + t2;
+                    genPosLep.Boost(-W1.BoostVector());
+                    W1.Boost(-t1.BoostVector());
+
+
+                    float gentheta1 = (W1.Angle(genPosLep.Vect()));
+                    h_truthRecoMuMu->Fill(theta1,gentheta1);
+                    genNegLep.Boost(-W2.BoostVector());
+                    W2.Boost(-t2.BoostVector());
+                    float gentheta2 = (W2.Angle(genNegLep.Vect()));
+                    h_truthRecoMuMu->Fill(theta2,gentheta2);
+
+
+
+                }
+            }
 
         }
         h_NBJetsMuMu->Fill(bjets.size(),theWeight);
@@ -1617,7 +1748,9 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         BJet.SetPtEtaPhiE(bjets.at(0).pt(),bjets.at(0).eta(),bjets.at(0).phi(),bjets.at(0).energy());
         BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
 
+        //        amwtsolver->SetConstraints(met.px(),met.py());
 
+        //        TtFullLepKinSolver::NeutrinoSolution nuSol=amwtsolver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
 
         amwtSolver->SetConstraints(met.px(),met.py());
         TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
@@ -1670,7 +1803,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             W1.Boost(-t1.BoostVector());
             float theta1 = (W1.Angle(lepPos.Vect()));
             RecoCos.push_back(TMath::Cos(theta1));
-
+            //            RecoCos.push_back(theta1);
             // cout << "what 3.1" << endl;
             h_cosElEl->Fill(TMath::Cos(theta1),theWeight);
             // cout << "what 3.2" << endl;
@@ -1679,7 +1812,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(lepNeg.Vect()));
             RecoCos.push_back(TMath::Cos(theta2));
-
+            //            RecoCos.push_back(theta2);
             h_cosElEl->Fill(TMath::Cos(theta2),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta2),theWeight);
             // cout << "what 4" << endl;
@@ -1710,7 +1843,9 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
 
 
+        //        amwtsolver->SetConstraints(met.px(),met.py());
 
+        //        TtFullLepKinSolver::NeutrinoSolution nuSol=amwtsolver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
         amwtSolver->SetConstraints(met.px(),met.py());
         TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
         // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
@@ -1757,14 +1892,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             W1.Boost(-t1.BoostVector());
             float theta1 = (W1.Angle(lepPos.Vect()));
             RecoCos.push_back(TMath::Cos(theta1));
-
+            //            RecoCos.push_back(theta1);
             h_cosElMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta1),theWeight);
             lepNeg.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(lepNeg.Vect()));
             RecoCos.push_back(TMath::Cos(theta2));
-
+            //            RecoCos.push_back(theta2);
             h_cosElMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta2),theWeight);
 
@@ -1792,7 +1927,9 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
         BBJet.SetPtEtaPhiE(bjets.at(1).pt(),bjets.at(1).eta(),bjets.at(1).phi(),bjets.at(1).energy());
 
 
+        //        amwtsolver->SetConstraints(met.px(),met.py());
 
+        //        TtFullLepKinSolver::NeutrinoSolution nuSol=amwtsolver->getNuSolution(lepPos,lepNeg,BJet,BBJet);
         amwtSolver->SetConstraints(met.px(),met.py());
         TtAMWTSolver::NeutrinoSolution nuSol =  amwtSolver->NuSolver(lepPos,lepNeg,BJet,BBJet);
         // cout << nuSol.neutrino.p4() << " neutrino "<< endl;
@@ -1839,14 +1976,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
             W1.Boost(-t1.BoostVector());
             float theta1 = (W1.Angle(lepPos.Vect()));
             RecoCos.push_back(TMath::Cos(theta1));
-
+            //            RecoCos.push_back(theta1);
             h_cosElMu->Fill(TMath::Cos(theta1),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta1),theWeight);
             lepNeg.Boost(-W2.BoostVector());
             W2.Boost(-t2.BoostVector());
             float theta2 = (W2.Angle(lepNeg.Vect()));
             RecoCos.push_back(TMath::Cos(theta2));
-
+            //            RecoCos.push_back(theta1);
             h_cosElMu->Fill(TMath::Cos(theta2),theWeight);
             h_cosDiLep->Fill(TMath::Cos(theta2),theWeight);
 
@@ -1859,105 +1996,7 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 
 
 
-    /////////////////////Print Event Details///////////////////////////////
 
-    //    for (const pat::Muon &mu : *muons) {
-    //        if (mu.pt() < 5 || !mu.isLooseMuon()) continue;
-    //        printf("muon with pt %4.1f,muon charge %i, dz(PV) %+5.3f, POG loose id %d, tight id %d\n",
-    //               mu.pt(),mu.charge(), mu.muonBestTrack()->dz(PV->position()), mu.isLooseMuon(), mu.isTightMuon(*PV));
-    //    }
-
-
-    //    for (const pat::Electron &el : *electrons) {
-    //        if (el.pt() < 5) continue;
-    //        printf("elec with pt %4.1f, number of lost Hits %i, supercluster eta %+5.3f, sigmaIetaIeta %.3f (%.3f with full5x5 shower shapes),  pass conv veto %d\n",
-    //               el.pt(),el.gsfTrack()->numberOfLostHits(), el.superCluster()->eta(), el.sigmaIetaIeta(), el.full5x5_sigmaIetaIeta(),  el.passConversionVeto());
-    //    }
-
-    //    edm::Handle<pat::PhotonCollection> photons;
-    //    iEvent.getByToken(photonToken_, photons);
-    //    for (const pat::Photon &pho : *photons) {
-    //        if (pho.pt() < 20 or pho.chargedHadronIso()/pho.pt() > 0.3) continue;
-    //        printf("phot with pt %4.1f, supercluster eta %+5.3f, sigmaIetaIeta %.3f (%.3f with full5x5 shower shapes)\n",
-    //               pho.pt(), pho.superCluster()->eta(), pho.sigmaIetaIeta(), pho.full5x5_sigmaIetaIeta());
-    //    }
-
-    // edm::Handle<pat::TauCollection> taus;
-    // iEvent.getByToken(tauToken_, taus);
-    // for (const pat::TauCollection &tau : *taus) {
-    //     if (tau.pt() < 20) continue;
-    //     printf("tau  with pt %4.1f, dxy signif %.1f, ID(byMediumCombinedIsolationDeltaBetaCorr3Hits) %.1f, lead candidate pt %.1f, pdgId %d \n",
-    //                 tau.pt(), tau.dxy_Sig(), tau.tauID("byMediumCombinedIsolationDeltaBetaCorr3Hits"), tau.leadCand()->pt(), tau.leadCand()->pdgId());
-    // }
-
-
-    //int ijet = 0;
-    //    for (const pat::Jet &j : *jets) {
-    //        if (j.pt() < 20) continue;
-    //        printf("jet  with pt %5.1f (raw pt %5.1f), eta %+4.2f, btag CSV %.3f, CISV %.3f, pileup mva disc %+.2f\n",
-    //               j.pt(), j.pt()*j.jecFactor("Uncorrected"), j.eta(), std::max(0.f,j.bDiscriminator("combinedSecondaryVertexBJetTags")), j.bDiscriminator("pfCombinedInclusiveSecondaryVertexV2BJetTags"), j.userFloat("pileupJetId:fullDiscriminant"));
-    //        // if ((++ijet) == 1) { // for the first jet, let's print the leading constituents
-    //        //     std::vector daus(j.daughterPtrVector());
-    //        //     std::sort(daus.begin(), daus.end(), [](const reco::CandidatePtr &p1, const reco::CandidatePtr &p2) { return p1->pt() > p2->pt(); }); // the joys of C++11
-    //        //     for (unsigned int i2 = 0, n = daus.size(); i2 < n && i2 <= 3; ++i2) {
-    //        //         const pat::PackedCandidate &cand = dynamic_cast<const pat::PackedCandidate &>(*daus[i2]);
-    //        //         printf("         constituent %3d: pt %6.2f, dz(pv) %+.3f, pdgId %+3d\n", i2,cand.pt(),cand.dz(PV.position()),cand.pdgId());
-    //        //     }
-    //        // }
-    //    }
-
-    //    edm::Handle<pat::JetCollection> fatjets;
-    //    iEvent.getByToken(fatjetToken_, fatjets);
-    //    for (const pat::Jet &j : *fatjets) {
-    //        printf("AK8j with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed, %5.1f softdrop, %5.1f pruned, %5.1f trimmed, %5.1f filtered. \n",
-    //               j.pt(), j.pt()*j.jecFactor("Uncorrected"), j.eta(), j.mass(), j.userFloat("ak8PFJetsCHSSoftDropMass"), j.userFloat("ak8PFJetsCHSPrunedMass"), j.userFloat("ak8PFJetsCHSTrimmedMass"), j.userFloat("ak8PFJetsCHSFilteredMass"));//, j.userFloat("cmsTopTagPFJetsCHSMassAK8"));
-
-    //        // To get the constituents of the AK8 jets, you have to loop over all of the
-    //        // daughters recursively. To save space, the first two constituents are actually
-    //        // the Soft Drop SUBJETS, which will then point to their daughters.
-    //        // The remaining constituents are those constituents removed by soft drop but
-    //        // still in the AK8 jet.
-    //        // std::vector<reco::GenParticle> constituents;
-    //        //      for ( unsigned ida = 0; ida < j.numberOfDaughters(); ++ida ) {
-    //        //   reco::Candidate const * cand = j.daughter(ida);
-    //        //   if ( cand->numberOfDaughters() == 0 )
-    //        //     constituents.push_back( cand ) ;
-    //        //   else {
-    //        //     for ( unsigned jda = 0; jda < cand->numberOfDaughters(); ++jda ) {
-    //        //       reco::Candidate const * cand2 = cand->daughter(jda);
-    //        //       constituents.push_back( cand2 );
-    //        //     }
-    //        //   }
-    //        // }
-    //        // std::sort( constituents.begin(), constituents.end(), [] (reco::Candidate const * ida, reco::Candidate const * jda){return ida->pt() > jda->pt();} );
-
-    //        // for ( unsigned int ida = 0; ida < constituents.size(); ++ida ) {
-    //        //   const pat::PackedCandidate &cand = dynamic_cast<const pat::PackedCandidate &>(*constituents[ida]);
-    //        //   printf("         constituent %3d: pt %6.2f, dz(pv) %+.3f, pdgId %+3d\n", ida,cand.pt(),cand.dz(PV.position()),cand.pdgId());
-    //        // }
-
-    //        // auto wSubjets = j.subjets("SoftDrop");
-    //        // for ( auto const & iw : wSubjets ) {
-    //        //   printf("   w subjet with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed\n",
-    //        //     iw->pt(), iw->pt()*iw->jecFactor("Uncorrected"), iw->eta(), iw->mass() );
-
-    //        // }
-    //        // auto tSubjets = j.subjets("CMSTopTag");
-    //        // for ( auto const & it : tSubjets ) {
-    //        //   printf("   t subjet with pt %5.1f (raw pt %5.1f), eta %+4.2f, mass %5.1f ungroomed\n",
-    //        //     it->pt(), it->pt()*it->jecFactor("Uncorrected"), it->eta(), it->mass() );
-
-    //        // }
-    //    }
-
-
-
-    //    printf("MET: pt %5.1f, phi %+4.2f, sumEt (%.1f). genMET %.1f. MET with JES up/down: %.1f/%.1f\n",
-    //           met.pt(), met.phi(), met.sumEt(),
-    //           met.genMET()->pt(),
-    //           met.shiftedPt(pat::MET::JetEnUp), met.shiftedPt(pat::MET::JetEnDown));
-
-    //    printf("\n");
 
     t_outTree->Fill();
 
@@ -1967,14 +2006,14 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 void MiniAnalyzer::beginJob() {
     TH1::SetDefaultSumw2();
 
-    h_cosMuMu = fs->make<TH1F>("h_cosMuMu",";cos(#theta);",10,-1,1);
-    h_cosElEl = fs->make<TH1F>("h_cosElEl",";cos(#theta);",10,-1,1);
-    h_cosElMu = fs->make<TH1F>("h_cosElMu",";cos(#theta);",10,-1,1);
-    h_cosDiLep = fs->make<TH1F>("h_cosDiLep",";cos(#theta);",10,-1,1);
-    h_cosGenElMu = fs->make<TH1F>("h_cosGenElMu",";cos(#theta);",10,-1,1);
-    h_cosGenMuMu = fs->make<TH1F>("h_cosGenMuMu",";cos(#theta);",10,-1,1);
-    h_cosGenElEl = fs->make<TH1F>("h_cosGenElEl",";cos(#theta);",10,-1,1);
-    h_cosGen = fs->make<TH1F>("h_cosGen",";cos(#theta);",10,-1,1);
+    h_cosMuMu = fs->make<TH1F>("h_cosMuMu",";cos(#theta);",100,-1,1);
+    h_cosElEl = fs->make<TH1F>("h_cosElEl",";cos(#theta);",100,-1,1);
+    h_cosElMu = fs->make<TH1F>("h_cosElMu",";cos(#theta);",100,-1,1);
+    h_cosDiLep = fs->make<TH1F>("h_cosDiLep",";cos(#theta);",100,-1,1);
+    h_cosGenElMu = fs->make<TH1F>("h_cosGenElMu",";cos(#theta);",100,-1,1);
+    h_cosGenMuMu = fs->make<TH1F>("h_cosGenMuMu",";cos(#theta);",100,-1,1);
+    h_cosGenElEl = fs->make<TH1F>("h_cosGenElEl",";cos(#theta);",100,-1,1);
+    h_cosGen = fs->make<TH1F>("h_cosGen",";cos(#theta);",100,-1,1);
     h_GenTTbarM = fs->make<TH1F>("h_GenTTbarM",";M_{TTbar};",100,90,1300);
     h_etaMu = fs->make<TH1F>("h_EtaMu",";#eta_{l};",100,-3,3);
     h_TTbarM = fs->make<TH1F>("h_TTbarM",";M_{TTbar};",100,0,1300);
@@ -1996,10 +2035,10 @@ void MiniAnalyzer::beginJob() {
     h_ptTElEl= fs->make<TH1F>("h_ptTElEl",";Pt^{Top};",100,0.,300.);
     h_ptTElMu= fs->make<TH1F>("h_ptTElMu",";Pt^{Top};",100,0.,300.);
     h_ptTDiLep= fs->make<TH1F>("h_ptTDiLep",";Pt^{Top};",100,0.,300.);
-    h_ptWMuMu= fs->make<TH1F>("h_ptWMuMu",";Pt^{W};",100,0.,300.);
-    h_ptWElEl= fs->make<TH1F>("h_ptWElEl",";Pt^{W};",100,0.,300.);
-    h_ptWElMu= fs->make<TH1F>("h_ptWElMu",";Pt^{W};",100,0.,300.);
-    h_ptWDiLep= fs->make<TH1F>("h_ptWDiLep",";Pt^{W};",100,0.,300.);
+    h_ptWMuMu= fs->make<TH1F>("h_ptWMuMu",";Pt^{W};",100,0.,1000.);
+    h_ptWElEl= fs->make<TH1F>("h_ptWElEl",";Pt^{W};",100,0.,1000.);
+    h_ptWElMu= fs->make<TH1F>("h_ptWElMu",";Pt^{W};",100,0.,1000.);
+    h_ptWDiLep= fs->make<TH1F>("h_ptWDiLep",";Pt^{W};",100,0.,1000.);
     h_mTTbarMuMu =fs->make<TH1F>("h_mTTbarMuMu",";M^{tt};",100,0,1300);
     h_mTTbarElEl =fs->make<TH1F>("h_mTTbarElEl",";M^{tt};",100,0,1300);
     h_mTTbarElMu =fs->make<TH1F>("h_mTTbarElMu",";M^{tt};",100,0,1300);
@@ -2070,6 +2109,8 @@ void MiniAnalyzer::beginJob() {
     h_AMS_METElMu = fs->make<TH1F>("h_AMS_METElMu",";MET;",100,0.,300.);
     h_AMS_METDiLep = fs->make<TH1F>("h_AMS_METDiLep",";MET;",100,0.,300.);
 
+    h_truthRecoMuMu = fs->make<TH2F>("h_truthRecoMuMu","",400,-1.,1.,400,-1.,1.);
+
 
     //initialize the tree
     f_outFile->cd();
@@ -2078,9 +2119,17 @@ void MiniAnalyzer::beginJob() {
     t_outTree->Branch("TotalNumberOfEvents",&NEvent,"TotalNumberOfEvents/I");
     t_outTree->Branch("NGoodvtx",&nGoodVtxs,"NGoodvtx/I");
     t_outTree->Branch("RecoCos",&RecoCos);
-    t_outTree->Branch("TruthCos",&TruthCos);
-    t_outTree->Branch("TruthMTT",&TruthMTT);
+    if(!isData)
+    {
+        t_outTree->Branch("TruthCos",&TruthCos);
+        t_outTree->Branch("TruthMTT",&TruthMTT);
+        t_outTree->Branch("TruthCosMuMu",&TruthCosMuMu);
+        t_outTree->Branch("TruthMTTMuMu",&TruthMTTMuMu);
+    }
     t_outTree->Branch("RecoMTT",&RecoMTT);
+    t_outTree->Branch("RecoCosMuMu",&RecoCosMuMu);
+
+    t_outTree->Branch("RecoMTTMuMu",&RecoMTTMuMu);
     t_outTree->Branch("EvantsAfterVert",&n_afterVertex,"EvantsAfterVert/I");
     t_outTree->Branch("EvantsAfterHLT",&n_afterHLT,"EvantsAfterHLT/I");
     t_outTree->Branch("EvantsAfterDiLep",&n_afterDiLepton,"EvantsAfterDiLep/I");

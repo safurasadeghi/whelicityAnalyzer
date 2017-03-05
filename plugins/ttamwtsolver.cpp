@@ -60,7 +60,11 @@ TtAMWTSolver::TtAMWTSolver(bool isData, const double b, const double e, const do
     h_ptsm = new TH1F("h_ptsm","",100,0,300);
     h_etasm = new TH1F("h_etasm","",100,-3,3);
     h_phism = new TH1F("h_phism","",100,-5,5);
-    h_SmearF = new TH1F("h_SmearFactor","",100,-4,4);
+    h_SmearF = new TH1F("h_SmearFactorPt","",600,-3,3);
+    h_SmearFPhi =new TH1F("h_SmearFactorPhi","",600,-3,3);
+    h_SmearFEta =new TH1F("h_SmearFactorEta","",600,-3,3);
+    h_Met = new TH2F("h_MET","",400,-400,400,400,-400,400);
+    h_topMass = new TH1F("topMass","",100,172.4,173.1);
     f_out = TFile::Open("sanityCheckHistos.root","RECREATE");
 
 
@@ -73,6 +77,7 @@ TtAMWTSolver::NeutrinoSolution TtAMWTSolver::NuSolver(const TLorentzVector &LV_l
 
     //Shift the jets by an energy scale factor
     TVector2 met_sh;
+
     met_sh.Set(pxmiss_,pymiss_);
     vector<TLorentzVector> jets_by_pt_sh;
     jets_by_pt_sh.push_back(LV_b);
@@ -93,6 +98,9 @@ TtAMWTSolver::NeutrinoSolution TtAMWTSolver::NuSolver(const TLorentzVector &LV_l
         h_ptsm->Fill(jets_by_pt_sm.at(0).Pt());
         h_phism->Fill(jets_by_pt_sm.at(0).Phi());
         h_SmearF->Fill(jets_by_pt_sm.at(0).Pt()/jets_by_pt_sh.at(0).Pt());
+        h_SmearFPhi->Fill(jets_by_pt_sm.at(0).Phi()/jets_by_pt_sh.at(0).Phi());
+        h_SmearFEta->Fill(jets_by_pt_sm.at(0).Eta()/jets_by_pt_sh.at(0).Eta());
+        h_Met->Fill(met_sh.X(),met_sm.X());
         //loop on top mass parameter
         double weightmaxdum = -1;
         for(double mt = topmass_begin;
@@ -108,6 +116,8 @@ TtAMWTSolver::NeutrinoSolution TtAMWTSolver::NuSolver(const TLorentzVector &LV_l
                 //TopRec(LV_l, LV_l_, LV_b, LV_b_, q_sol[isol]);
                 TopRec(LV_l, LV_l_, jets_by_pt_sm[0], jets_by_pt_sm[1], q_sol[isol]);
                 double weight = get_weight(jets_by_pt_sm[0],jets_by_pt_sm[1],LV_l,LV_l_,LV_n,LV_n_,mt);
+		cout <<"weight of mt answer: " <<  weight << endl;
+                h_topMass->Fill(mt,weight);
                 if (weight > weightmaxdum) {
                     weightmaxdum =weight;
                     maxLV_n.SetPxPyPzE(LV_n.Px(), LV_n.Py(), LV_n.Pz(), LV_n.E());
@@ -136,6 +146,10 @@ void TtAMWTSolver::writeOut()
     h_phism->Write();
     h_SmearF->Write();
     h_etasm->Write();
+    h_Met->Write();
+    h_SmearFEta->Write();
+    h_SmearFPhi->Write();
+    h_topMass->Write();
     f_out->Close();
 }
 
@@ -277,7 +291,8 @@ void TtAMWTSolver::smear_JetMET(const vector <TLorentzVector> & orig_jets, const
 
 
 
-    double smearFactor = 1.;
+    double smearFactorPt = 1.;
+    double smearFactorPhi = 1.;
     for (unsigned int sui = 0; sui < orig_jets.size(); sui++){
 
         JME::JetParameters par;
@@ -285,19 +300,23 @@ void TtAMWTSolver::smear_JetMET(const vector <TLorentzVector> & orig_jets, const
         par.setJetPt(orig_jets.at(sui).Pt());
         par.setRho(rho);
         double jet_resPt = ptResol->getResolution(par);
+        double jet_resPhi = phiResol->getResolution(par);
         double jer_sf = SF->getScaleFactor({{JME::Binning::JetEta, orig_jets.at(sui).Eta()}},Variation::NOMINAL);
-        double sigma = jet_resPt * std::sqrt(jer_sf * jer_sf - 1);
+        double sigma = jet_resPt;// * std::sqrt(jer_sf * jer_sf - 1);
+        double sigma2 = jet_resPhi;
 //        cout<< sigma <<endl;
         std::normal_distribution<> d(0, sigma);
+        std::normal_distribution<> l(0,sigma2);
 //        cout << d(e2)<< endl;
-        smearFactor = 1. + d(e2);
+        smearFactorPt = 1. + d(e2)*std::sqrt(std::max(jer_sf*jer_sf -1,0.));
+        smearFactorPhi = 1.+ l(e2);
 
-        Pt_sm = orig_jets.at(sui).Pt()*smearFactor;
-        Eta_sm = orig_jets.at(sui).Eta()*smearFactor;
-        Phi_sm = orig_jets.at(sui).Phi()*smearFactor;
-//        cout <<"Jet "<< smearFactor<<" " << Pt_sm<<" " << Eta_sm<<" " << Phi_sm << endl;
-        v_temp.SetPtEtaPhiE(Pt_sm, Eta_sm, Phi_sm, orig_jets.at(sui).E()*smearFactor);
-
+        Pt_sm = orig_jets.at(sui).Pt()*smearFactorPt;
+        Eta_sm = orig_jets.at(sui).Eta();
+        Phi_sm = orig_jets.at(sui).Phi()*smearFactorPhi;
+        //        cout <<"Jet "<< smearFactor<<" " << Pt_sm<<" " << Eta_sm<<" " << Phi_sm << endl;
+        v_temp.SetPtEtaPhiE(Pt_sm, Eta_sm, Phi_sm, orig_jets.at(sui).E());
+	    //v_temp = orig_jets[sui]*smearFactorPt;
         sum_jpx += orig_jets.at(sui).Px();
         sum_jpy += orig_jets.at(sui).Py();
 
@@ -315,7 +334,7 @@ void TtAMWTSolver::smear_JetMET(const vector <TLorentzVector> & orig_jets, const
 
     //10% resolution
     std::normal_distribution<> t(0, 0.1);
-    double MetSmear = t(m_random_generator);
+    double MetSmear = t(e2);
     double unclust_metx_sm = unclust_metx * (1 + MetSmear );
     double unclust_mety_sm = unclust_mety * (1 + MetSmear );
 //    cout << unclust_metx_sm<<"Met " << unclust_mety_sm << endl;

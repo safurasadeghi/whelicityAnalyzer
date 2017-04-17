@@ -50,6 +50,7 @@
 #include "TopQuarkAnalysis/TopKinFitter/interface/TtFullLepKinSolver.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 #include "SimDataFormats/GeneratorProducts/interface/LHEEventProduct.h"
+#include "SimDataFormats/GeneratorProducts/interface/LHERunInfoProduct.h"
 #include "RecoEgamma/EgammaTools/interface/EffectiveAreas.h"
 #include "AnalysisDataFormats/TopObjects/interface/TtDilepEvtSolution.h"
 #include "ttamwtsolver.h"
@@ -76,6 +77,8 @@ public:
 
 private:
     virtual void beginJob() override;
+    virtual void beginRun(edm::Run const&, edm::EventSetup const&);
+    virtual void endRun(edm::Run const& iRun, edm::EventSetup const&);
     virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
     virtual void endJob() override;
 
@@ -269,11 +272,11 @@ private:
     int n_after2BJets = 0;
     int n_afterTop = 0;
     edm::View<pat::PackedGenParticle> genColl;
+    edm::EDGetTokenT<LHERunInfoProduct> lheInfo_;
 
     TLorentzVector PosLep;
     TLorentzVector NegLep;
     TLorentzVector DiLep;
-
 
 
 };
@@ -300,7 +303,9 @@ MiniAnalyzer::MiniAnalyzer(const edm::ParameterSet& iConfig):
     phiRes( (iConfig.getParameter<string>("phiRes")) ),
     sfRes( (iConfig.getParameter<string>("sfRes")) ),
     outfileName((iConfig.getParameter<string>("outFileName"))),
-    triggerResluts_(mayConsume<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults")))
+    triggerResluts_(mayConsume<edm::TriggerResults>(iConfig.getParameter<edm::InputTag>("triggerResults"))),
+    lheInfo_(mayConsume<LHERunInfoProduct,InRun>(iConfig.getParameter<edm::InputTag>("externalLHEProducer")))
+
 {
     // initializing the solver
     amwtSolver = new TtAMWTSolver(isData,172.4,172.6,0.1,80.4,4.8,ptRes,phiRes,sfRes);
@@ -532,8 +537,9 @@ MiniAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
     else
     {
         theWeight = genEvtInfo->weight();
-       // int whichWeight = 1;
-        //theWeight *= lhEvtInfo->weights()[whichWeight].wgt/lhEvtInfo->originalXWGTUP();
+        int whichWeight = 1;
+        theWeight *= lhEvtInfo->weights()[whichWeight].wgt/lhEvtInfo->originalXWGTUP();
+
     }
 
     h_NPV->Fill(nGoodVtxs,theWeight);
@@ -1994,5 +2000,27 @@ void MiniAnalyzer::fillDescriptions(edm::ConfigurationDescriptions& descriptions
     desc.setUnknown();
     descriptions.addDefault(desc);
 }
+void MiniAnalyzer::beginRun(const Run & iRun, const EventSetup &){
+
+
+}
+void MiniAnalyzer::endRun(const Run & iRun, const EventSetup &){
+    if(!isData){
+    edm::Handle<LHERunInfoProduct> run;
+    typedef std::vector<LHERunInfoProduct::Header>::const_iterator headers_const_iterator;
+    iRun.getByToken(lheInfo_,run);
+//    iRun.getByLabel( "externalLHEProducer", run );
+    LHERunInfoProduct myLHERunInfoProduct = *(run.product());
+
+    for (headers_const_iterator iter=myLHERunInfoProduct.headers_begin(); iter!=myLHERunInfoProduct.headers_end(); iter++){
+      std::cout << iter->tag() << std::endl;
+      std::vector<std::string> lines = iter->lines();
+      for (unsigned int iLine = 0; iLine<lines.size(); iLine++) {
+       std::cout << lines.at(iLine);
+      }
+    }
+    }
+}
+
 //define this as a plug-in
 DEFINE_FWK_MODULE(MiniAnalyzer);

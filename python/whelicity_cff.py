@@ -22,7 +22,8 @@ Whelicity = cms.EDAnalyzer("MiniAnalyzer",
 	phiRes = cms.string("Spring16_25nsV10_MC_PhiResolution_AK4PFchs.txt"),
 	sfRes = cms.string("Spring16_25nsV10_MC_SF_AK4PFchs.txt"),
 	outFileName = cms.string("outFile.root"),
-	triggerResults = cms.InputTag("TriggerResults","","HLT")
+	triggerResults = cms.InputTag("TriggerResults","","HLT"),
+	externalLHEProducer = cms.InputTag("externalLHEProducer")
 	
 )
 
